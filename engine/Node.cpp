@@ -107,16 +107,6 @@ void Node::setHostname(std::string name)
 std::string Node::getHostname()
 {
     return hostname;
-}    
-
-bool Node::isCompromised()
-{
-    return compromised;
-}
-
-void Node::markCompromised()
-{
-    compromised = true;
 }
 
 // Node template methods

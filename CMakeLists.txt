@@ -5,53 +5,127 @@ project(RedNet VERSION 1.0.0 LANGUAGES CXX)
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
-# Set build type if not specified
-if(NOT CMAKE_BUILD_TYPE)
-    set(CMAKE_BUILD_TYPE Release)
-endif()
-
 # Compiler flags
-set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wall -Wextra")
+set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wall -Wextra -ferror-limit=2000 -Wno-format-security")
 set(CMAKE_CXX_FLAGS_DEBUG "${CMAKE_CXX_FLAGS_DEBUG} -g -O0")
 set(CMAKE_CXX_FLAGS_RELEASE "${CMAKE_CXX_FLAGS_RELEASE} -O3")
 
+# macOS specific flags
+if(APPLE)
+    set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -x objective-c++")
+    add_definitions(-DGL_SILENCE_DEPRECATION)
+    # Suppress GLFW null character warnings and UTF-8 errors
+    set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wno-null-character -Wno-invalid-source-encoding")
+endif()
+
 # Find required packages
-find_package(Threads REQUIRED)
+find_package(OpenGL REQUIRED)
+find_package(PkgConfig REQUIRED)
+pkg_check_modules(GLFW REQUIRED glfw3)
+
+# Include GLFW CFLAGS
+include_directories(${GLFW_INCLUDE_DIRS})
+
+# Manual ImGui setup to avoid corruption issues
+set(IMGUI_DIR "${CMAKE_CURRENT_SOURCE_DIR}/external/imgui")
+if(NOT EXISTS "${IMGUI_DIR}")
+    message(STATUS "Downloading ImGui...")
+    file(MAKE_DIRECTORY "${CMAKE_CURRENT_SOURCE_DIR}/external")
+    execute_process(
+        COMMAND git clone --depth 1 --branch v1.90.4 https://github.com/ocornut/imgui.git "${IMGUI_DIR}"
+        WORKING_DIRECTORY "${CMAKE_CURRENT_SOURCE_DIR}/external"
+        RESULT_VARIABLE IMGUI_DOWNLOAD_RESULT
+    )
+    if(NOT IMGUI_DOWNLOAD_RESULT EQUAL 0)
+        message(FATAL_ERROR "Failed to download ImGui")
+    endif()
+endif()
+
+# Add ImGui source files
+set(IMGUI_SOURCES
+    "${IMGUI_DIR}/imgui.cpp"
+    "${IMGUI_DIR}/imgui_demo.cpp"
+    "${IMGUI_DIR}/imgui_draw.cpp"
+    "${IMGUI_DIR}/imgui_tables.cpp"
+    "${IMGUI_DIR}/imgui_widgets.cpp"
+    "${IMGUI_DIR}/backends/imgui_impl_glfw.cpp"
+    "${IMGUI_DIR}/backends/imgui_impl_opengl3.cpp"
+)
 
 # Include directories
-include_directories(${CMAKE_SOURCE_DIR})
-
-# Engine source files
-set(ENGINE_SOURCES
-    engine/Node.cpp
-    engine/Scanner.cpp
-    engine/Exploit.cpp
-    engine/Payload.cpp
+include_directories(
+    ${CMAKE_CURRENT_SOURCE_DIR}/ai
+    ${CMAKE_CURRENT_SOURCE_DIR}/engine
+    ${CMAKE_CURRENT_SOURCE_DIR}/network
+    ${CMAKE_CURRENT_SOURCE_DIR}/shell
+    ${CMAKE_CURRENT_SOURCE_DIR}/ui
+    ${CMAKE_CURRENT_SOURCE_DIR}/utils
+    ${IMGUI_DIR}
+    ${GLFW_INCLUDE_DIRS}
 )
 
-# Main executable
-add_executable(RedNet
+# Source files
+set(SOURCES
     main.cpp
-    ${ENGINE_SOURCES}
+    ai/AIAgent.cpp
+    ai/AIAgentManager.cpp
+    engine/Exploit.cpp
+    engine/Node.cpp
+    engine/Payload.cpp
+    engine/Scanner.cpp
+    network/NetworkGraph.cpp
+    network/Packet.cpp
+    network/TopologyGenerator.cpp
+    shell/Shell.cpp
+    ui/AdvancedVisualizer.cpp
+    ui/Visualizer.cpp
+    ui/desktop/ImGuiDashboard.cpp
+    utils/Config.cpp
+    ${IMGUI_SOURCES}
 )
 
-# Link libraries
-target_link_libraries(RedNet Threads::Threads)
+# Create executable
+add_executable(RedNet ${SOURCES})
 
-# Set output directory
-set_target_properties(RedNet PROPERTIES
-    RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/bin
-)
+# Link libraries (with GUI support)
+target_link_libraries(RedNet PRIVATE ${OPENGL_LIBRARIES} ${GLFW_LIBRARIES})
 
-# Installation
-install(TARGETS RedNet
-    RUNTIME DESTINATION bin
-)
+# macOS app bundle configuration
+if(APPLE)
+    set_target_properties(RedNet PROPERTIES
+        MACOSX_BUNDLE TRUE
+        MACOSX_BUNDLE_INFO_PLIST "${CMAKE_CURRENT_SOURCE_DIR}/resources/Info.plist"
+        MACOSX_BUNDLE_ICON_FILE "${CMAKE_CURRENT_SOURCE_DIR}/resources/RedNet.icns"
+    )
+    
+    # Install the app bundle
+    install(TARGETS RedNet
+        BUNDLE DESTINATION .
+        RUNTIME DESTINATION bin
+    )
+else()
+    # Install executable on other platforms
+    install(TARGETS RedNet DESTINATION bin)
+endif()
 
 # Copy headers for development
 install(DIRECTORY engine/
     DESTINATION include/engine
     FILES_MATCHING PATTERN "*.h"
+)
+
+install(DIRECTORY network/
+    DESTINATION include/network
+    FILES_MATCHING PATTERN "*.h"
+)
+
+# Ensure fonts directory exists and copy FontAwesome font (if present)
+install(DIRECTORY fonts/ DESTINATION ${CMAKE_BINARY_DIR}/fonts)
+
+# Copy fonts into the bundle
+add_custom_command(TARGET RedNet POST_BUILD
+    COMMAND ${CMAKE_COMMAND} -E copy_directory
+        ${CMAKE_SOURCE_DIR}/fonts $<TARGET_FILE_DIR:RedNet>/../Resources/fonts
 )
 
 # Print configuration info

@@ -1,3 +1,6 @@
+#ifndef PAYLOAD_H
+#define PAYLOAD_H
+
 #include <iostream>
 #include <string>
 #include <vector>
@@ -36,6 +39,7 @@ struct PayloadResult {
     bool success;
     std::string output;
     std::string errorMessage;
+    std::string message;
     std::vector<std::string> filesAccessed;
     std::vector<std::string> commandsExecuted;
     std::vector<std::string> dataCollected;
@@ -134,7 +138,7 @@ public:
 private:
     std::string readFileContent(Node& target, std::string filePath);
     std::vector<std::string> findFiles(Node& target, std::string directory, std::string extension);
-    std::string compressData(std::string data);
+    std::string compressFileData(std::string data);
 };
 
 // Persistence Payload for backdoor installation
@@ -259,3 +263,5 @@ public:
     Payload* findPayloadByName(std::string name);
     int getPayloadCount() const { return payloads.size(); }
 };
+
+#endif // PAYLOAD_H

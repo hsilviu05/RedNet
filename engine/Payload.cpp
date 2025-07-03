@@ -432,7 +432,7 @@ std::string ReconnaissancePayload::gatherSystemInfo(Node& target) {
     std::string info = "=== SYSTEM INFORMATION ===\n";
     info += "Hostname: " + target.hostname + "\n";
     info += "IP Address: " + target.ip + "\n";
-    info += "OS: " + (target.os == LINUX ? "Linux" : target.os == WINDOWS ? "Windows" : "Unknown") + "\n";
+    info += "OS: " + std::string(target.os == LINUX ? "Linux" : target.os == WINDOWS ? "Windows" : "Unknown") + "\n";
     info += "Services: " + std::to_string(target.services.size()) + "\n";
     info += "Users: " + std::to_string(target.users.size()) + "\n";
     info += "Files: " + std::to_string(target.fileSystem.size()) + "\n";

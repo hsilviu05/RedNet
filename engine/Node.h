@@ -1,3 +1,6 @@
+#ifndef NODE_H
+#define NODE_H
+
 #include <iostream>
 #include <string>
 #include <vector>
@@ -86,8 +89,13 @@ private:
     std::vector<Service> getAllServices();
     void setHostname(std::string name);
     std::string getHostname();
-    bool isCompromised();
-    void markCompromised();
+    
+public:
+    // Make these methods public for testing
+    bool isCompromised() { return compromised; }
+    void markCompromised() { compromised = true; }
 };
+
+#endif // NODE_H
 
 
