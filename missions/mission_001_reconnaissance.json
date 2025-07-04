@@ -1,0 +1,120 @@
+{
+  "id": "mission_001",
+  "name": "Network Reconnaissance Basics",
+  "description": "Learn the fundamentals of network reconnaissance. Your objective is to discover and map a small corporate network, identify active hosts, and gather information about running services.",
+  "type": "RECONNAISSANCE",
+  "difficulty": "Beginner",
+  "timeLimit": 30,
+  "objectives": [
+    {
+      "id": "obj_001_scan_network",
+      "name": "Network Discovery",
+      "description": "Scan the network range 192.168.1.0/24 to discover active hosts",
+      "type": "SCAN_NETWORK",
+      "requirements": [],
+      "targetNodes": ["192.168.1.1", "192.168.1.10", "192.168.1.20", "192.168.1.30"],
+      "parameters": {
+        "network_range": "192.168.1.0/24",
+        "scan_type": "ping_sweep"
+      },
+      "completed": false,
+      "points": 20
+    },
+    {
+      "id": "obj_002_port_scan",
+      "name": "Port Scanning",
+      "description": "Perform port scans on discovered hosts to identify open services",
+      "type": "SCAN_NETWORK",
+      "requirements": ["obj_001_scan_network"],
+      "targetNodes": ["192.168.1.10", "192.168.1.20"],
+      "parameters": {
+        "ports": "21,22,23,25,53,80,110,143,443,993,995,3389",
+        "scan_type": "tcp_connect"
+      },
+      "completed": false,
+      "points": 30
+    },
+    {
+      "id": "obj_003_service_fingerprint",
+      "name": "Service Fingerprinting",
+      "description": "Identify the specific services and versions running on open ports",
+      "type": "SCAN_NETWORK",
+      "requirements": ["obj_002_port_scan"],
+      "targetNodes": ["192.168.1.10"],
+      "parameters": {
+        "fingerprint_type": "banner_grab",
+        "detailed": "true"
+      },
+      "completed": false,
+      "points": 25
+    },
+    {
+      "id": "obj_004_network_map",
+      "name": "Network Topology Mapping",
+      "description": "Create a visual map of the discovered network topology",
+      "type": "SCAN_NETWORK",
+      "requirements": ["obj_003_service_fingerprint"],
+      "targetNodes": [],
+      "parameters": {
+        "output_format": "visual",
+        "include_services": "true"
+      },
+      "completed": false,
+      "points": 25
+    }
+  ],
+  "nodes": [
+    {
+      "ip": "192.168.1.1",
+      "hostname": "gateway",
+      "os": "Linux",
+      "services": ["ssh", "dhcp", "dns"],
+      "vulnerabilities": [],
+      "configuration": {
+        "role": "gateway",
+        "description": "Network gateway and router"
+      }
+    },
+    {
+      "ip": "192.168.1.10",
+      "hostname": "webserver",
+      "os": "Linux",
+      "services": ["ssh", "http", "https", "ftp"],
+      "vulnerabilities": ["weak_ssh_config", "outdated_apache"],
+      "configuration": {
+        "role": "web_server",
+        "description": "Corporate web server"
+      }
+    },
+    {
+      "ip": "192.168.1.20",
+      "hostname": "fileserver",
+      "os": "Linux",
+      "services": ["ssh", "ftp", "smb", "nfs"],
+      "vulnerabilities": ["anonymous_ftp", "weak_smb_config"],
+      "configuration": {
+        "role": "file_server",
+        "description": "File storage server"
+      }
+    },
+    {
+      "ip": "192.168.1.30",
+      "hostname": "workstation",
+      "os": "Windows",
+      "services": ["rdp", "smb"],
+      "vulnerabilities": ["weak_rdp_config"],
+      "configuration": {
+        "role": "workstation",
+        "description": "Employee workstation"
+      }
+    }
+  ],
+  "environment": {
+    "network_type": "corporate_lan",
+    "security_level": "low",
+    "monitoring": "basic"
+  },
+  "prerequisites": [],
+  "totalPoints": 100,
+  "completed": false
+} 

@@ -1,0 +1,111 @@
+{
+  "id": "mission_003",
+  "name": "Privilege Escalation Mastery",
+  "description": "Advanced techniques for escalating privileges from user-level access to administrative or root access. This mission covers both Windows and Linux privilege escalation methods.",
+  "type": "PRIVILEGE_ESCALATION",
+  "difficulty": "Advanced",
+  "timeLimit": 60,
+  "objectives": [
+    {
+      "id": "obj_001_enumeration",
+      "name": "System Enumeration",
+      "description": "Perform comprehensive enumeration of the compromised system to identify privilege escalation vectors",
+      "type": "SCAN_NETWORK",
+      "requirements": [],
+      "targetNodes": ["192.168.3.10", "192.168.3.20"],
+      "parameters": {
+        "enumeration_type": "system_enumeration",
+        "scope": "comprehensive"
+      },
+      "completed": false,
+      "points": 15
+    },
+    {
+      "id": "obj_002_linux_escalation",
+      "name": "Linux Privilege Escalation",
+      "description": "Exploit Linux privilege escalation vectors including SUID binaries, cron jobs, and kernel vulnerabilities",
+      "type": "ESCALATE_PRIVILEGES",
+      "requirements": ["obj_001_enumeration"],
+      "targetNodes": ["192.168.3.10"],
+      "parameters": {
+        "os": "linux",
+        "escalation_methods": ["suid_binaries", "cron_jobs", "kernel_exploits", "sudo_misconfig"]
+      },
+      "completed": false,
+      "points": 35
+    },
+    {
+      "id": "obj_003_windows_escalation",
+      "name": "Windows Privilege Escalation",
+      "description": "Exploit Windows privilege escalation vectors including service misconfigurations and token manipulation",
+      "type": "ESCALATE_PRIVILEGES",
+      "requirements": ["obj_001_enumeration"],
+      "targetNodes": ["192.168.3.20"],
+      "parameters": {
+        "os": "windows",
+        "escalation_methods": ["service_misconfig", "token_manipulation", "registry_abuse", "dll_hijacking"]
+      },
+      "completed": false,
+      "points": 35
+    },
+    {
+      "id": "obj_004_persistence_establishment",
+      "name": "Establish Administrative Persistence",
+      "description": "Establish persistent administrative access to maintain elevated privileges",
+      "type": "MAINTAIN_PERSISTENCE",
+      "requirements": ["obj_002_linux_escalation", "obj_003_windows_escalation"],
+      "targetNodes": ["192.168.3.10", "192.168.3.20"],
+      "parameters": {
+        "persistence_type": "administrative",
+        "methods": ["ssh_keys", "scheduled_tasks", "registry_keys", "startup_scripts"]
+      },
+      "completed": false,
+      "points": 25
+    },
+    {
+      "id": "obj_005_credential_harvesting",
+      "name": "Credential Harvesting",
+      "description": "Extract and crack stored credentials to gain additional access",
+      "type": "ESCALATE_PRIVILEGES",
+      "requirements": ["obj_002_linux_escalation", "obj_003_windows_escalation"],
+      "targetNodes": ["192.168.3.10", "192.168.3.20"],
+      "parameters": {
+        "harvesting_methods": ["memory_dump", "registry_dump", "password_files", "hash_extraction"]
+      },
+      "completed": false,
+      "points": 20
+    }
+  ],
+  "nodes": [
+    {
+      "ip": "192.168.3.10",
+      "hostname": "linux-server",
+      "os": "Linux",
+      "services": ["ssh", "http", "ftp", "mysql"],
+      "vulnerabilities": ["suid_binary", "cron_job_vulnerability", "kernel_vulnerability", "sudo_misconfig"],
+      "configuration": {
+        "role": "application_server",
+        "description": "Linux server with multiple privilege escalation vectors"
+      }
+    },
+    {
+      "ip": "192.168.3.20",
+      "hostname": "windows-server",
+      "os": "Windows",
+      "services": ["rdp", "smb", "iis", "sqlserver"],
+      "vulnerabilities": ["service_misconfig", "weak_permissions", "registry_vulnerability", "dll_hijacking"],
+      "configuration": {
+        "role": "domain_controller",
+        "description": "Windows domain controller with privilege escalation opportunities"
+      }
+    }
+  ],
+  "environment": {
+    "network_type": "enterprise_network",
+    "security_level": "high",
+    "monitoring": "advanced"
+  },
+  "prerequisites": ["mission_001", "mission_002"],
+  "totalPoints": 130,
+  "completed": false
+} 

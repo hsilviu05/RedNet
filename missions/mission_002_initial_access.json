@@ -1,0 +1,128 @@
+{
+  "id": "mission_002",
+  "name": "Initial Access Techniques",
+  "description": "Master the art of gaining initial access to target systems. This mission focuses on exploiting common vulnerabilities to establish your first foothold in the network.",
+  "type": "INITIAL_ACCESS",
+  "difficulty": "Intermediate",
+  "timeLimit": 45,
+  "objectives": [
+    {
+      "id": "obj_001_vulnerability_assessment",
+      "name": "Vulnerability Assessment",
+      "description": "Analyze the target systems to identify exploitable vulnerabilities",
+      "type": "SCAN_NETWORK",
+      "requirements": [],
+      "targetNodes": ["192.168.2.10", "192.168.2.20", "192.168.2.30"],
+      "parameters": {
+        "scan_type": "vulnerability_scan",
+        "intensity": "medium"
+      },
+      "completed": false,
+      "points": 15
+    },
+    {
+      "id": "obj_002_ssh_brute_force",
+      "name": "SSH Brute Force Attack",
+      "description": "Attempt to brute force SSH access on the web server using common credentials",
+      "type": "EXPLOIT_SERVICE",
+      "requirements": ["obj_001_vulnerability_assessment"],
+      "targetNodes": ["192.168.2.10"],
+      "parameters": {
+        "service": "ssh",
+        "attack_type": "brute_force",
+        "username_list": "admin,root,user,guest",
+        "password_list": "password,123456,admin,root"
+      },
+      "completed": false,
+      "points": 25
+    },
+    {
+      "id": "obj_003_ftp_anonymous",
+      "name": "FTP Anonymous Access",
+      "description": "Exploit anonymous FTP access on the file server to gain initial access",
+      "type": "EXPLOIT_SERVICE",
+      "requirements": ["obj_001_vulnerability_assessment"],
+      "targetNodes": ["192.168.2.20"],
+      "parameters": {
+        "service": "ftp",
+        "attack_type": "anonymous_access",
+        "upload_shell": "true"
+      },
+      "completed": false,
+      "points": 20
+    },
+    {
+      "id": "obj_004_web_exploitation",
+      "name": "Web Application Exploitation",
+      "description": "Exploit a vulnerable web application to gain shell access",
+      "type": "EXPLOIT_SERVICE",
+      "requirements": ["obj_001_vulnerability_assessment"],
+      "targetNodes": ["192.168.2.10"],
+      "parameters": {
+        "service": "http",
+        "attack_type": "sql_injection",
+        "payload": "'; DROP TABLE users; --"
+      },
+      "completed": false,
+      "points": 30
+    },
+    {
+      "id": "obj_005_shell_establishment",
+      "name": "Establish Persistent Shell",
+      "description": "Establish a persistent shell connection to maintain access",
+      "type": "GAIN_ACCESS",
+      "requirements": ["obj_002_ssh_brute_force", "obj_003_ftp_anonymous", "obj_004_web_exploitation"],
+      "targetNodes": ["192.168.2.10", "192.168.2.20"],
+      "parameters": {
+        "shell_type": "reverse_shell",
+        "persistence": "true",
+        "backdoor": "true"
+      },
+      "completed": false,
+      "points": 20
+    }
+  ],
+  "nodes": [
+    {
+      "ip": "192.168.2.10",
+      "hostname": "webapp-server",
+      "os": "Linux",
+      "services": ["ssh", "http", "https", "mysql"],
+      "vulnerabilities": ["weak_ssh_passwords", "sql_injection", "xss_vulnerability"],
+      "configuration": {
+        "role": "web_application_server",
+        "description": "Vulnerable web application server"
+      }
+    },
+    {
+      "ip": "192.168.2.20",
+      "hostname": "file-storage",
+      "os": "Linux",
+      "services": ["ftp", "smb", "ssh"],
+      "vulnerabilities": ["anonymous_ftp", "weak_smb_config", "default_ssh_keys"],
+      "configuration": {
+        "role": "file_storage",
+        "description": "File storage server with weak security"
+      }
+    },
+    {
+      "ip": "192.168.2.30",
+      "hostname": "database-server",
+      "os": "Linux",
+      "services": ["mysql", "ssh", "redis"],
+      "vulnerabilities": ["weak_mysql_password", "redis_unauthorized"],
+      "configuration": {
+        "role": "database_server",
+        "description": "Database server with exposed services"
+      }
+    }
+  ],
+  "environment": {
+    "network_type": "development_environment",
+    "security_level": "medium",
+    "monitoring": "basic"
+  },
+  "prerequisites": ["mission_001"],
+  "totalPoints": 110,
+  "completed": false
+} 
