@@ -20,7 +20,7 @@
 #include <thread>
 #include <atomic>
 #include <mutex>
-#include "AIAgentManager.h"
+#include "ai/AIAgentManager.h"
 
 class Shell {
 private:

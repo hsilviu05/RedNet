@@ -10,13 +10,17 @@
 #include <mutex>
 #include "AIAgent.h"
 
+struct SimpleAgent {
+    std::string name;
+    std::string type;
+    std::string state;
+};
+
 class AIAgentManager {
 private:
     std::vector<std::shared_ptr<AIAgent>> agents;
+    std::vector<SimpleAgent> simpleAgents;
     std::map<std::string, std::shared_ptr<AIAgent>> agentMap;
-    std::shared_ptr<NetworkGraph> network;
-    std::shared_ptr<ExploitDatabase> exploitDB;
-    std::shared_ptr<Scanner> scanner;
     
     std::thread managerThread;
     std::atomic<bool> running;
@@ -33,9 +37,11 @@ public:
     
     // Agent management
     void addAgent(std::shared_ptr<AIAgent> agent);
-    void removeAgent(std::string agentName);
+    void removeAgent(const std::string& name);
     std::shared_ptr<AIAgent> getAgent(const std::string& name);
     std::vector<std::shared_ptr<AIAgent>> getAllAgents() const;
+    void addAgent(const std::string& name, const std::string& type);
+    std::vector<SimpleAgent> getSimpleAgents() const;
     
     // Control methods
     void startAllAgents();
@@ -44,9 +50,6 @@ public:
     void resumeAllAgents();
     
     // Configuration
-    void setNetwork(std::shared_ptr<NetworkGraph> net);
-    void setExploitDB(std::shared_ptr<ExploitDatabase> db);
-    void setScanner(std::shared_ptr<Scanner> scan);
     void setMaxAgents(int max) { maxAgents = max; }
     void setCollaboration(bool enable) { enableCollaboration = enable; }
     void setLearning(bool enable) { enableLearning = enable; }

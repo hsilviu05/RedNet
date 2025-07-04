@@ -11,6 +11,7 @@
 #include "../../network/NetworkGraph.h"
 #include "../../network/TopologyGenerator.h"
 #include "../../missions/Mission.h"
+#include "../../utils/Logger.h"
 
 // Forward declarations
 class NetworkGraph;
@@ -33,6 +34,7 @@ private:
     std::atomic<bool> dashboardRunning{true};
     std::thread simulationThread;
     std::mutex dataMutex;
+    bool showAboutDialog = false;
     
     // Agent data
     struct AgentData {
@@ -82,6 +84,7 @@ private:
     void stopSimulation();
     void simulationLoop();
     void addLogEntry(const std::string& entry, const std::string& agent = "System", const std::string& action = "Log", const std::string& target = "Dashboard", const std::string& result = "Info");
+    void applyConfigurationChanges();
 
 public:
     ImGuiDashboard(std::shared_ptr<AIAgentManager> ai,

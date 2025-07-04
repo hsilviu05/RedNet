@@ -1,137 +1,137 @@
 #include "Scanner.h"
+#include <iostream>
+#include <thread>
+#include <chrono>
+#include <random>
 
-Scanner::Scanner() {
-    // Initialize service database with common ports
-    serviceDatabase[22] = {"SSH", "OpenSSH 7.2p2", "SSH-2.0-OpenSSH_7.2p2 Ubuntu-4ubuntu2.2"};
-    serviceDatabase[21] = {"FTP", "vsFTPd 2.3.4", "220 (vsFTPd 2.3.4)"};
-    serviceDatabase[80] = {"HTTP", "Apache 2.4.41", "HTTP/1.1 200 OK"};
-    serviceDatabase[443] = {"HTTPS", "Apache 2.4.41", "HTTP/1.1 200 OK"};
-    serviceDatabase[3389] = {"RDP", "Windows RDP", "RDP"};
-    serviceDatabase[445] = {"SMB", "Samba 4.7.6", "SMB"};
-    serviceDatabase[135] = {"RPC", "Windows RPC", "RPC"};
-    serviceDatabase[139] = {"NetBIOS", "Windows NetBIOS", "NetBIOS"};
-    serviceDatabase[23] = {"Telnet", "Linux telnetd", "telnet"};
-    serviceDatabase[25] = {"SMTP", "Postfix", "220 mail.example.com"};
-    
-    scanTimeout = 3000;  // 3 seconds default
-    verboseMode = false;
+Scanner::Scanner() : isScanning(false), scanProgress(0.0f) {
+    scanResults.clear();
 }
 
 Scanner::~Scanner() {
+    stopScan();
+}
+
+void Scanner::startScan(const std::string& target, ScanType type) {
+    if (isScanning) {
+        std::cout << "Scan already in progress..." << std::endl;
+        return;
+    }
+    
+    isScanning = true;
+    scanProgress = 0.0f;
     scanResults.clear();
-    scannedIPs.clear();
+    currentTarget = target;
+    currentScanType = type;
+    
+    std::cout << "Starting " << getScanTypeName(type) << " scan on " << target << std::endl;
+    
+    // Start scan in background thread
+    scanThread = std::thread(&Scanner::performScan, this);
 }
 
-void Scanner::scanPort(std::string ip, int port)
-{
-    ScanResult result;
-    result.ip = ip;
-    result.port = port;
-    
-    // Simulate port scanning with random success
-    bool isOpen = (rand() % 100) < 70; // 70% chance port is open
-    
-    if (isOpen) {
-        result.isOpen = true;
-        
-        // Get service info from database
-        if (serviceDatabase.find(port) != serviceDatabase.end()) {
-            ServiceInfo service = serviceDatabase[port];
-            result.service = service.name;
-            result.banner = service.banner;
-        } else {
-            result.service = "Unknown";
-            result.banner = "";
+void Scanner::stopScan() {
+    if (isScanning) {
+        isScanning = false;
+        if (scanThread.joinable()) {
+            scanThread.join();
         }
-        
-        // Simulate banner grabbing
-        grabBanner(ip, port);
-        fingerprintService(ip, port);
-    } else {
-        result.isOpen = false;
-        result.service = "";
-        result.banner = "";
-    }
-    
-    scanResults.push_back(result); 
-}
-
-void Scanner::scanPortRange(std::string ip, int startPort, int endPort)
-{
-    for (int port = startPort; port <= endPort; port++) {
-        scanPort(ip, port);
-        
-        // Add small delay for realism
-        if (verboseMode) {
-            std::cout << "Scanning " << ip << ":" << port << std::endl;
-        }
+        std::cout << "Scan stopped." << std::endl;
     }
 }
 
-void Scanner::scanNetwork(std::string ipRange)
-{
-    std::vector<std::string> ips = {"192.168.1.1", "192.168.1.2", "192.168.1.10", "192.168.1.100"};
-    
-    for (std::string ip : ips) {
-        scanHost(ip);
-    }
+bool Scanner::isScanActive() const {
+    return isScanning;
 }
 
-void Scanner::fingerprintService(std::string ip, int port)
-{
-    if (verboseMode) {
-        std::cout << "Fingerprinting service on " << ip << ":" << port << std::endl;
-    }
+float Scanner::getScanProgress() const {
+    return scanProgress;
 }
 
-void Scanner::grabBanner(std::string ip, int port)
-{
-    if (verboseMode) {
-        std::cout << "Grabbing banner from " << ip << ":" << port << std::endl;
-    }
-}
-
-void Scanner::scanHost(std::string ip)
-{
-    if (scannedIPs.find(ip) != scannedIPs.end()) {
-        return; // Already scanned
-    }
-    
-    scannedIPs.insert(ip);
-    
-    // Scan common ports
-    std::vector<int> commonPorts = {21, 22, 23, 25, 80, 443, 135, 139, 445, 3389};
-    
-    for (int port : commonPorts) {
-        scanPort(ip, port);
-    }
-}
-
-std::vector<ScanResult> Scanner::getResults()
-{
+const std::vector<ScanResult>& Scanner::getScanResults() const {
     return scanResults;
 }
 
-void Scanner::clearResults()
-{
-    scanResults.clear();
-    scannedIPs.clear();
-}
-void Scanner::setVerbose(bool verbose)
-{   
-    verboseMode = verbose;
-}
-void Scanner::setTimeout(int timeout)
-{
-    scanTimeout = timeout;
+void Scanner::performScan() {
+    std::random_device rd;
+    std::mt19937 gen(rd());
+    std::uniform_real_distribution<float> progressDist(0.0f, 1.0f);
+    std::uniform_int_distribution<int> portDist(1, 65535);
+    std::uniform_int_distribution<int> delayDist(50, 200);
+    
+    // Simulate scan progress
+    for (int i = 0; i < 100 && isScanning; ++i) {
+        scanProgress = static_cast<float>(i) / 100.0f;
+        
+        // Simulate finding ports/services
+        if (i % 10 == 0 && isScanning) {
+            ScanResult result;
+            result.port = portDist(gen);
+            result.service = getServiceName(result.port);
+            result.status = (portDist(gen) % 3 == 0) ? "open" : "closed";
+            result.vulnerability = (portDist(gen) % 5 == 0) ? "potential" : "none";
+            
+            scanResults.push_back(result);
+        }
+        
+        std::this_thread::sleep_for(std::chrono::milliseconds(delayDist(gen)));
+    }
+    
+    if (isScanning) {
+        scanProgress = 1.0f;
+        std::cout << "Scan completed. Found " << scanResults.size() << " results." << std::endl;
+    }
+    
+    isScanning = false;
 }
 
-bool Scanner::isPortOpen(std::string ip, int port)
-{
-    for (const ScanResult& result : scanResults) {
-        if (result.ip == ip && result.port == port && result.isOpen) {
-            return true;
+std::string Scanner::getScanTypeName(ScanType type) {
+    switch (type) {
+        case ScanType::QUICK: return "Quick";
+        case ScanType::FULL: return "Full";
+        case ScanType::STEALTH: return "Stealth";
+        case ScanType::VULNERABILITY: return "Vulnerability";
+        default: return "Unknown";
+    }
+}
+
+std::string Scanner::getServiceName(int port) {
+    switch (port) {
+        case 21: return "FTP";
+        case 22: return "SSH";
+        case 23: return "Telnet";
+        case 25: return "SMTP";
+        case 53: return "DNS";
+        case 80: return "HTTP";
+        case 110: return "POP3";
+        case 143: return "IMAP";
+        case 443: return "HTTPS";
+        case 993: return "IMAPS";
+        case 995: return "POP3S";
+        case 3306: return "MySQL";
+        case 5432: return "PostgreSQL";
+        case 8080: return "HTTP-Proxy";
+        default: return "Unknown";
+    }
+}
+
+void Scanner::exportResults(const std::string& filename) {
+    // Implementation for exporting scan results
+    std::cout << "Exporting scan results to " << filename << std::endl;
+}
+
+std::vector<ScanResult> Scanner::filterResults(const std::string& filter) {
+    std::vector<ScanResult> filtered;
+    for (const auto& result : scanResults) {
+        if (result.service.find(filter) != std::string::npos ||
+            result.status.find(filter) != std::string::npos ||
+            result.vulnerability.find(filter) != std::string::npos) {
+            filtered.push_back(result);
         }
     }
-    return false;
-}
+    return filtered;
+} 
+
+void Scanner::setVerbose(bool verbose) { /* stub */ }
+void Scanner::scanHost(const std::string& host) { /* stub */ }
+std::vector<ScanResult> Scanner::getResults() const { return scanResults; } 

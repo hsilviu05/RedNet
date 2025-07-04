@@ -78,6 +78,7 @@ public:
     void loadAvailableMissions();
     
     // Mission execution
+    bool loadMissionById(const std::string& missionId);
     bool startMission(const std::string& missionId);
     bool completeObjective(const std::string& objectiveId);
     bool isMissionCompleted();

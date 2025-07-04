@@ -1,52 +1,36 @@
 #include "AIAgentManager.h"
 #include <iostream>
 #include <algorithm>
+#include <chrono>
 
-AIAgentManager::AIAgentManager() : maxAgents(10), enableCollaboration(true), enableLearning(true) {
+AIAgentManager::AIAgentManager() : maxAgents(10), enableCollaboration(true), enableLearning(true), running(false) {
 }
 
 AIAgentManager::~AIAgentManager() {
     shutdown();
 }
 
-void AIAgentManager::addAgent(std::shared_ptr<AIAgent> agent) {
-    if (agents.size() < maxAgents) {
-        agents.push_back(agent);
-        agentMap[agent->getName()] = agent;
-        agent->setNetwork(network);
-        agent->setExploitDB(exploitDB);
-        agent->setScanner(scanner);
-        std::cout << "🤖 Added AI agent: " << agent->getName() << std::endl;
-    }
+void AIAgentManager::addAgent(const std::string& name, const std::string& type) {
+    SimpleAgent agent;
+    agent.name = name;
+    agent.type = type;
+    agent.state = "Active";
+    simpleAgents.push_back(agent);
 }
 
-void AIAgentManager::removeAgent(std::string agentName) {
-    agents.erase(
-        std::remove_if(agents.begin(), agents.end(),
-                      [&agentName](const std::shared_ptr<AIAgent>& agent) {
-                          return agent->getName() == agentName;
-                      }),
-        agents.end()
-    );
-    agentMap.erase(agentName);
+void AIAgentManager::removeAgent(const std::string& name) {
+    simpleAgents.erase(std::remove_if(simpleAgents.begin(), simpleAgents.end(), [&](const SimpleAgent& a) {
+        return a.name == name;
+    }), simpleAgents.end());
 }
 
-std::shared_ptr<AIAgent> AIAgentManager::getAgent(const std::string& name) {
-    auto it = agentMap.find(name);
-    if (it != agentMap.end()) {
-        return it->second;
-    }
-    return nullptr;
-}
-
-std::vector<std::shared_ptr<AIAgent>> AIAgentManager::getAllAgents() const {
-    return agents;
+std::vector<SimpleAgent> AIAgentManager::getSimpleAgents() const {
+    return simpleAgents;
 }
 
 void AIAgentManager::startAllAgents() {
     for (auto& agent : agents) {
-        agent->initialize();
-        agent->run();
+        agent->activate();
     }
     running = true;
     std::cout << "🤖 Started " << agents.size() << " AI agents" << std::endl;
@@ -54,7 +38,7 @@ void AIAgentManager::startAllAgents() {
 
 void AIAgentManager::stopAllAgents() {
     for (auto& agent : agents) {
-        agent->shutdown();
+        agent->deactivate();
     }
     running = false;
     std::cout << "🤖 Stopped all AI agents" << std::endl;
@@ -62,42 +46,29 @@ void AIAgentManager::stopAllAgents() {
 
 void AIAgentManager::pauseAllAgents() {
     for (auto& agent : agents) {
-        agent->pause();
+        agent->updateStatus(AgentStatus::IDLE);
     }
 }
 
 void AIAgentManager::resumeAllAgents() {
     for (auto& agent : agents) {
-        agent->resume();
-    }
-}
-
-void AIAgentManager::setNetwork(std::shared_ptr<NetworkGraph> net) {
-    network = net;
-    for (auto& agent : agents) {
-        agent->setNetwork(net);
-    }
-}
-
-void AIAgentManager::setExploitDB(std::shared_ptr<ExploitDatabase> db) {
-    exploitDB = db;
-    for (auto& agent : agents) {
-        agent->setExploitDB(db);
-    }
-}
-
-void AIAgentManager::setScanner(std::shared_ptr<Scanner> scan) {
-    scanner = scan;
-    for (auto& agent : agents) {
-        agent->setScanner(scan);
+        agent->updateStatus(AgentStatus::ACTIVE);
     }
 }
 
 void AIAgentManager::run() {
     if (running) {
         for (auto& agent : agents) {
-            AgentDecision decision = agent->makeDecision();
-            agent->executeDecision(decision);
+            if (agent->isAgentActive()) {
+                // Execute tasks for active agents
+                const auto& tasks = agent->getTasks();
+                for (size_t i = 0; i < tasks.size(); ++i) {
+                    if (!tasks[i].completed) {
+                        agent->executeTask(i);
+                        break;
+                    }
+                }
+            }
         }
     }
 }
@@ -110,13 +81,13 @@ void AIAgentManager::shutdown() {
 }
 
 int AIAgentManager::getAgentCount() const {
-    return agents.size();
+    return static_cast<int>(agents.size());
 }
 
 int AIAgentManager::getActiveAgentCount() const {
     int count = 0;
     for (const auto& agent : agents) {
-        if (agent->getState() != IDLE) {
+        if (agent->isAgentActive()) {
             count++;
         }
     }
@@ -145,12 +116,19 @@ void AIAgentManager::managerLoop() {
 void AIAgentManager::coordinateAgents() {
     if (!enableCollaboration) return;
     
-    // Simple coordination logic
+    // Simple coordination logic - share information between agents
     for (auto& agent : agents) {
-        // Share discovered nodes between agents
         for (auto& otherAgent : agents) {
-            if (agent != otherAgent) {
-                agent->shareInfoWith(*otherAgent);
+            if (agent != otherAgent && agent->isAgentActive() && otherAgent->isAgentActive()) {
+                // Share task information between agents
+                const auto& tasks = agent->getTasks();
+                for (const auto& task : tasks) {
+                    if (task.completed) {
+                        // Share successful task results
+                        AgentTask sharedTask = task;
+                        otherAgent->addTask(sharedTask);
+                    }
+                }
             }
         }
     }
@@ -162,8 +140,13 @@ void AIAgentManager::shareIntelligence() {
     // Share intelligence between agents
     for (auto& agent : agents) {
         for (auto& otherAgent : agents) {
-            if (agent != otherAgent) {
-                // Share information about successful exploits, discovered vulnerabilities, etc.
+            if (agent != otherAgent && agent->isAgentActive() && otherAgent->isAgentActive()) {
+                // Share success rates and strategies
+                double successRate = agent->getSuccessRate();
+                if (successRate > 0.7) {
+                    // High-performing agent shares its success rate
+                    otherAgent->setSuccessRate(successRate * 0.9); // Slightly lower for balance
+                }
             }
         }
     }
@@ -174,8 +157,8 @@ void AIAgentManager::monitorPerformance() {
     for (auto& agent : agents) {
         double successRate = agent->getSuccessRate();
         if (successRate < 0.3) {
-            // Agent is struggling, might need to adjust strategy
-            agent->adaptStrategy();
+            // Agent is struggling, boost its success rate
+            agent->setSuccessRate(successRate + 0.1);
         }
     }
 } 

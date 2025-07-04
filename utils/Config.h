@@ -20,14 +20,6 @@ enum ConfigSection {
     GENERAL_CONFIG
 };
 
-// Security level
-enum SecurityLevel {
-    LOW_SECURITY,      // Easy targets, no detection
-    MEDIUM_SECURITY,   // Some protection, basic detection
-    HIGH_SECURITY,     // Strong protection, advanced detection
-    MAXIMUM_SECURITY   // Military grade, AI detection
-};
-
 // AI difficulty level
 enum AIDifficulty {
     NOVICE_AI,         // Basic decision making
@@ -49,7 +41,7 @@ struct NetworkProfile {
     std::map<std::string, double> serviceProbabilities;
     std::map<std::string, double> vulnerabilityProbabilities;
     
-    NetworkProfile() : type(STAR_TOPOLOGY), nodeCount(5), linkCount(4), vulnerabilityDensity(0.3) {}
+    NetworkProfile() : type(TopologyType::STAR), nodeCount(5), linkCount(4), vulnerabilityDensity(0.3) {}
 };
 
 // Exploit Configuration
@@ -70,7 +62,7 @@ struct ExploitConfig {
 
 // Security Configuration
 struct SecurityConfig {
-    SecurityLevel level;
+    int level;  // Using int to avoid enum conflict
     bool enableDetection;
     bool enableResponse;
     double detectionProbability;
@@ -79,7 +71,7 @@ struct SecurityConfig {
     std::vector<std::string> responseActions;
     std::map<std::string, double> methodEffectiveness;
     
-    SecurityConfig() : level(MEDIUM_SECURITY), enableDetection(true), enableResponse(true),
+    SecurityConfig() : level(1), enableDetection(true), enableResponse(true),
                       detectionProbability(0.3), responseTime(5.0) {}
 };
 
@@ -247,7 +239,7 @@ public:
     ConfigBuilder& withDisabledExploit(std::string exploit);
     
     // Security configuration builder
-    ConfigBuilder& withSecurityLevel(SecurityLevel level);
+    ConfigBuilder& withSecurityLevel(int level);
     ConfigBuilder& withDetection(bool enable);
     ConfigBuilder& withDetectionProbability(double prob);
     ConfigBuilder& withResponseTime(double time);

@@ -15,16 +15,33 @@ MissionManager::~MissionManager() = default;
 void MissionManager::loadAvailableMissions() {
     std::string missionsDir = "missions";
     
-    // Check if we're running from an app bundle (macOS)
-    std::string bundleResourcesPath = "Resources/missions";
-    if (std::filesystem::exists(bundleResourcesPath)) {
-        missionsDir = bundleResourcesPath;
-        std::cout << "📁 Using app bundle missions directory: " << missionsDir << std::endl;
-    } else if (std::filesystem::exists("missions")) {
-        missionsDir = "missions";
-        std::cout << "📁 Using project missions directory: " << missionsDir << std::endl;
-    } else {
-        std::cout << "❌ No missions directory found!" << std::endl;
+    // Try multiple possible paths for missions directory
+    std::vector<std::string> possiblePaths = {
+        "Resources/missions",                    // App bundle relative
+        "../Resources/missions",                 // App bundle from MacOS dir
+        "missions",                             // Project directory
+        "../missions",                          // Project directory one level up
+        "build/bin/RedNet.app/Contents/Resources/missions",  // Full path from project root
+        "/Users/silviu/RedNet/missions",        // Absolute path to project missions
+        "/Users/silviu/RedNet/build/bin/RedNet.app/Contents/Resources/missions"  // Absolute path to app bundle
+    };
+    
+    bool found = false;
+    for (const auto& path : possiblePaths) {
+        if (std::filesystem::exists(path)) {
+            missionsDir = path;
+            std::cout << "📁 Using missions directory: " << missionsDir << std::endl;
+            found = true;
+            break;
+        }
+    }
+    
+    if (!found) {
+        std::cout << "❌ No missions directory found! Tried paths:" << std::endl;
+        for (const auto& path : possiblePaths) {
+            std::cout << "  - " << path << " (exists: " << (std::filesystem::exists(path) ? "yes" : "no") << ")" << std::endl;
+        }
+        std::cout << "Current working directory: " << std::filesystem::current_path() << std::endl;
         return;
     }
     
@@ -79,48 +96,136 @@ bool MissionManager::loadMissionFromJson(const std::string& jsonData) {
 }
 
 bool MissionManager::parseMissionJson(const std::string& jsonData, Mission& mission) {
-    // Simple JSON parsing for mission structure
-    // In a real implementation, you'd use a proper JSON library like nlohmann/json
+    // Enhanced JSON parsing for mission structure
+    // This parser handles the root-level mission properties correctly
     
-    // For now, we'll create a basic parser that looks for key patterns
     std::istringstream iss(jsonData);
     std::string line;
+    bool inObjectives = false;
+    bool inNodes = false;
+    int braceDepth = 0;
     
     while (std::getline(iss, line)) {
-        // Parse mission ID
-        if (line.find("\"id\"") != std::string::npos) {
-            size_t start = line.find("\"id\"") + 6;
-            size_t end = line.find("\"", start);
-            if (end != std::string::npos) {
-                mission.id = line.substr(start, end - start);
+        // Remove leading/trailing whitespace
+        line.erase(0, line.find_first_not_of(" \t"));
+        line.erase(line.find_last_not_of(" \t") + 1);
+        
+        // Track brace depth to understand JSON structure
+        for (char c : line) {
+            if (c == '{') braceDepth++;
+            if (c == '}') braceDepth--;
+        }
+        
+        // Check for objectives array start
+        if (line.find("\"objectives\"") != std::string::npos && line.find("[") != std::string::npos) {
+            inObjectives = true;
+            continue;
+        }
+        
+        // Check for nodes array start
+        if (line.find("\"nodes\"") != std::string::npos && line.find("[") != std::string::npos) {
+            inNodes = true;
+            continue;
+        }
+        
+        // Check for array end
+        if (line.find("]") != std::string::npos && (inObjectives || inNodes)) {
+            inObjectives = false;
+            inNodes = false;
+            continue;
+        }
+        
+        // Only parse root-level properties (braceDepth == 1 means we're at the root level)
+        if (braceDepth == 1 && !inObjectives && !inNodes) {
+            // Parse mission ID
+            if (line.find("\"id\"") != std::string::npos && line.find(":") != std::string::npos) {
+                size_t start = line.find(":") + 1;
+                start = line.find("\"", start) + 1;
+                size_t end = line.find("\"", start);
+                if (end != std::string::npos) {
+                    mission.id = line.substr(start, end - start);
+                }
+            }
+            
+            // Parse mission name
+            if (line.find("\"name\"") != std::string::npos && line.find(":") != std::string::npos) {
+                size_t start = line.find(":") + 1;
+                start = line.find("\"", start) + 1;
+                size_t end = line.find("\"", start);
+                if (end != std::string::npos) {
+                    mission.name = line.substr(start, end - start);
+                }
+            }
+            
+            // Parse description
+            if (line.find("\"description\"") != std::string::npos && line.find(":") != std::string::npos) {
+                size_t start = line.find(":") + 1;
+                start = line.find("\"", start) + 1;
+                size_t end = line.find("\"", start);
+                if (end != std::string::npos) {
+                    mission.description = line.substr(start, end - start);
+                }
+            }
+            
+            // Parse difficulty
+            if (line.find("\"difficulty\"") != std::string::npos && line.find(":") != std::string::npos) {
+                size_t start = line.find(":") + 1;
+                start = line.find("\"", start) + 1;
+                size_t end = line.find("\"", start);
+                if (end != std::string::npos) {
+                    mission.difficulty = line.substr(start, end - start);
+                }
+            }
+            
+            // Parse time limit
+            if (line.find("\"timeLimit\"") != std::string::npos && line.find(":") != std::string::npos) {
+                size_t start = line.find(":") + 1;
+                start = line.find_first_not_of(" \t", start);
+                size_t end = line.find_first_of(",}", start);
+                if (end != std::string::npos) {
+                    try {
+                        mission.timeLimit = std::stoi(line.substr(start, end - start));
+                    } catch (...) {
+                        mission.timeLimit = 0;
+                    }
+                }
+            }
+            
+            // Parse total points
+            if (line.find("\"totalPoints\"") != std::string::npos && line.find(":") != std::string::npos) {
+                size_t start = line.find(":") + 1;
+                start = line.find_first_not_of(" \t", start);
+                size_t end = line.find_first_of(",}", start);
+                if (end != std::string::npos) {
+                    try {
+                        mission.totalPoints = std::stoi(line.substr(start, end - start));
+                    } catch (...) {
+                        mission.totalPoints = 0;
+                    }
+                }
             }
         }
         
-        // Parse mission name
-        if (line.find("\"name\"") != std::string::npos) {
-            size_t start = line.find("\"name\"") + 8;
+        // Parse objectives (when we're inside the objectives array)
+        if (inObjectives && line.find("\"id\"") != std::string::npos && line.find(":") != std::string::npos) {
+            Objective obj;
+            
+            // Parse objective ID
+            size_t start = line.find(":") + 1;
+            start = line.find("\"", start) + 1;
             size_t end = line.find("\"", start);
             if (end != std::string::npos) {
-                mission.name = line.substr(start, end - start);
+                obj.id = line.substr(start, end - start);
             }
-        }
-        
-        // Parse description
-        if (line.find("\"description\"") != std::string::npos) {
-            size_t start = line.find("\"description\"") + 15;
-            size_t end = line.find("\"", start);
-            if (end != std::string::npos) {
-                mission.description = line.substr(start, end - start);
-            }
-        }
-        
-        // Parse difficulty
-        if (line.find("\"difficulty\"") != std::string::npos) {
-            size_t start = line.find("\"difficulty\"") + 14;
-            size_t end = line.find("\"", start);
-            if (end != std::string::npos) {
-                mission.difficulty = line.substr(start, end - start);
-            }
+            
+            // Set default values for objective
+            obj.name = "Objective " + std::to_string(mission.objectives.size() + 1);
+            obj.description = "Complete this objective";
+            obj.type = ObjectiveType::SCAN_NETWORK;
+            obj.completed = false;
+            obj.points = 10;
+            
+            mission.objectives.push_back(obj);
         }
     }
     
@@ -130,7 +235,29 @@ bool MissionManager::parseMissionJson(const std::string& jsonData, Mission& miss
     if (mission.description.empty()) mission.description = "No description provided";
     if (mission.difficulty.empty()) mission.difficulty = "Beginner";
     
-    mission.timeLimit = 0; // No time limit by default
+    // Ensure we have at least one objective
+    if (mission.objectives.empty()) {
+        Objective defaultObj;
+        defaultObj.id = "default_objective";
+        defaultObj.name = "Complete Mission";
+        defaultObj.description = "Complete the mission objectives";
+        defaultObj.type = ObjectiveType::SCAN_NETWORK;
+        defaultObj.completed = false;
+        defaultObj.points = 100;
+        mission.objectives.push_back(defaultObj);
+    }
+    
+    // Set mission type based on difficulty
+    if (mission.difficulty == "Beginner") {
+        mission.type = MissionType::RECONNAISSANCE;
+    } else if (mission.difficulty == "Intermediate") {
+        mission.type = MissionType::INITIAL_ACCESS;
+    } else if (mission.difficulty == "Advanced") {
+        mission.type = MissionType::PRIVILEGE_ESCALATION;
+    } else {
+        mission.type = MissionType::FULL_PENTEST;
+    }
+    
     mission.completed = false;
     
     return true;
@@ -186,14 +313,32 @@ Mission* MissionManager::getCurrentMission() {
     return currentMission.get();
 }
 
-bool MissionManager::startMission(const std::string& missionId) {
-    // Find the mission
+bool MissionManager::loadMissionById(const std::string& missionId) {
+    // Find the mission in available missions
     auto it = std::find_if(availableMissions.begin(), availableMissions.end(),
                           [&missionId](const Mission& m) { return m.id == missionId; });
     
     if (it == availableMissions.end()) {
         std::cout << "❌ Mission not found: " << missionId << std::endl;
         return false;
+    }
+    
+    // Load the mission as current mission
+    currentMission = std::make_unique<Mission>(*it);
+    std::cout << "📋 Mission loaded: " << currentMission->name << std::endl;
+    std::cout << "📝 Description: " << currentMission->description << std::endl;
+    std::cout << "🎯 Objectives: " << currentMission->objectives.size() << std::endl;
+    std::cout << "🏆 Total points: " << currentMission->totalPoints << std::endl;
+    
+    return true;
+}
+
+bool MissionManager::startMission(const std::string& missionId) {
+    // First load the mission if not already loaded
+    if (!currentMission || currentMission->id != missionId) {
+        if (!loadMissionById(missionId)) {
+            return false;
+        }
     }
     
     // Check prerequisites
@@ -203,7 +348,6 @@ bool MissionManager::startMission(const std::string& missionId) {
     }
     
     // Start the mission
-    currentMission = std::make_unique<Mission>(*it);
     std::cout << "🚀 Starting mission: " << currentMission->name << std::endl;
     std::cout << "📋 Objectives: " << currentMission->objectives.size() << std::endl;
     std::cout << "🎯 Total points: " << currentMission->totalPoints << std::endl;

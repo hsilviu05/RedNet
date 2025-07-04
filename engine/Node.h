@@ -1,101 +1,143 @@
 #ifndef NODE_H
 #define NODE_H
 
-#include <iostream>
 #include <string>
 #include <vector>
-#include <unordered_map>
-#include <unordered_set>
-#include <set>
-#include <map>
-#include <queue>
-#include <stack>
-#include <deque>
-#include <list>
 
-enum OperatingSystem {
-    LINUX,
-    WINDOWS,
-    MACOS,
-    UNKNOWN
+enum class NodeType {
+    WORKSTATION,
+    SERVER,
+    ROUTER,
+    SWITCH,
+    FIREWALL,
+    DATABASE,
+    WEB_SERVER,
+    MAIL_SERVER,
+    DNS_SERVER,
+    FILE_SERVER
 };
 
-struct Service
-{
-    int port;
+enum class SecurityLevel {
+    LOW,
+    MEDIUM,
+    HIGH,
+    CRITICAL
+};
+
+enum class UserRole {
+    ADMIN,
+    USER,
+    GUEST,
+    SERVICE
+};
+
+enum class FileSensitivity {
+    LOW,
+    MEDIUM,
+    HIGH,
+    CRITICAL
+};
+
+enum OS {
+    LINUX,
+    WINDOWS
+};
+
+constexpr int USER_ACCESS = 1;
+constexpr int ADMIN_ACCESS = 2;
+constexpr int ROOT_ACCESS = 3;
+
+struct Service {
     std::string serviceName;
-    std::string version;
-    std::string settings;
+    int port;
     bool isRunning;
     
-    Service() : port(0), isRunning(false) {}
-    Service(int p, std::string name) : port(p), serviceName(name), isRunning(true) {}
+    Service();
+    Service(const std::string& name, int servicePort, bool running);
+    std::string toJson() const;
 };
 
-struct Vulnerability
-{
-    std::string type;
-    std::string difficulty;
-    std::string service;
-    int port;
-    int probability;
-    std::string tools;
+struct User {
+    std::string username;
+    std::string password;
+    UserRole role;
+    
+    User();
+    User(const std::string& name, const std::string& pass, UserRole userRole);
+    std::string getRoleName() const;
+    std::string toJson() const;
+};
+
+struct File {
+    std::string filePath;
+    FileSensitivity sensitivity;
+    
+    File();
+    File(const std::string& path, FileSensitivity sens);
+    std::string getSensitivityName() const;
+    std::string toJson() const;
 };
 
 class Node {
+private:
+    int id;
+    std::string ip;
+    std::string hostname;
+    NodeType type;
+    bool isCompromised;
+    bool isActive;
+    SecurityLevel securityLevel;
+    std::vector<Service> services;
+    std::vector<User> users;
+    std::vector<File> files;
+
 public:
     Node();
-    Node(std::string ip, OperatingSystem os);
+    Node(int nodeId, const std::string& ip, const std::string& hostname, NodeType type);
+    Node(const std::string& ip, OS os);
+    Node(const std::string& ip, OS os, const std::string& hostname);
     ~Node();
+
+    int getId() const;
+    const std::string& getIp() const;
+    const std::string& getHostname() const;
+    NodeType getType() const;
+    bool isNodeCompromised() const;
+    bool isNodeActive() const;
+    SecurityLevel getSecurityLevel() const;
     
-    // Node templates
+    const std::vector<Service>& getServices() const;
+    const std::vector<User>& getUsers() const;
+    const std::vector<File>& getFiles() const;
+
+    void addService(const Service& service);
+    void addUser(const User& user);
+    void addFile(const File& file);
+    
+    void markCompromised();
+    void setSecurityLevel(SecurityLevel level);
+    void setActive(bool active);
+    
+    bool hasService(const std::string& serviceName) const;
+    bool hasUser(const std::string& username) const;
+    bool authenticateUser(const std::string& username, const std::string& password) const;
+    
+    std::string getTypeName() const;
+    std::string getSecurityLevelName() const;
+    std::vector<Service> getRunningServices() const;
+    std::vector<File> getSensitiveFiles() const;
+    
+    void generateDefaultServices();
+    void generateDefaultUsers();
+    void generateDefaultFiles();
+    
     void createWebServer();
-    void createFileServer();
     void createWorkstation();
     void createDomainController();
+    void setVerbose(bool verbose);
+    void createFileServer();
     
-    // File system methods
-    void addFile(std::string path, std::string content);
-    std::string readFile(std::string path);
-    bool fileExists(std::string path);
-    
-    // User management
-    void addUser(std::string username, std::string password);
-    bool authenticateUser(std::string username, std::string password);
-    
-    // Public member variables
-    std::string ip;
-    int port;
-    std::string service;
-    OperatingSystem os;
-    std::vector<Service> services;
-    std::vector<Vulnerability> vulnerabilities;
-    std::vector<int> openPorts;
-    std::string hostname;
-    std::map<std::string, std::string> fileSystem;
-    std::map<std::string, std::string> users; // username -> password hash
-
-private:
-    bool compromised;
-    
-    void addVulnerability(Vulnerability vuln);
-    bool isServiceRunning(int port);
-    std::vector<int> getOpenPorts();
-    OperatingSystem getOS();
-    bool hasVulnerability(std::string vulnType);
-    void addService(Service service);
-    void removeService(int port);
-    Service getService(int port);
-    std::vector<Service> getAllServices();
-    void setHostname(std::string name);
-    std::string getHostname();
-    
-public:
-    // Make these methods public for testing
-    bool isCompromised() { return compromised; }
-    void markCompromised() { compromised = true; }
+    std::string toJson() const;
 };
 
-#endif // NODE_H
-
-
+#endif // NODE_H 

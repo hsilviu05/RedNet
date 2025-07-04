@@ -1,586 +1,307 @@
 #include "NetworkGraph.h"
-#include "../engine/Node.h"
-#include <algorithm>
-#include <thread>
+#include <iostream>
+#include <fstream>
 #include <sstream>
-#include <iomanip>
+#include <random>
+#include <algorithm>
+#include <queue>
+#include <set>
 
-NetworkGraph::NetworkGraph() 
-    : maxHops(15), enableFirewall(true), gen(rd()) {
-    defaultGateway = "192.168.1.1";
-    dnsServer = "8.8.8.8";
+NetworkConnection::NetworkConnection() : sourceId(0), targetId(0), isActive(false), bandwidth(0.0f) {
 }
 
-NetworkGraph::NetworkGraph(const NetworkGraph& other)
-    : maxHops(other.maxHops), enableFirewall(other.enableFirewall), gen(rd()) {
-    defaultGateway = other.defaultGateway;
-    dnsServer = other.dnsServer;
-    nodes = other.nodes;
-    adjacencyList = other.adjacencyList;
-    links = other.links;
-    routingTable = other.routingTable;
-    firewallRules = other.firewallRules;
-    packetHistory = other.packetHistory;
-    packetHandlers = other.packetHandlers;
+NetworkConnection::NetworkConnection(int source, int target, const std::string& type, bool active, float bw)
+    : sourceId(source), targetId(target), connectionType(type), isActive(active), bandwidth(bw) {
+}
+
+std::string NetworkConnection::toJson() const {
+    std::ostringstream json;
+    json << "{";
+    json << "\"sourceId\":" << sourceId << ",";
+    json << "\"targetId\":" << targetId << ",";
+    json << "\"type\":\"" << connectionType << "\",";
+    json << "\"isActive\":" << (isActive ? "true" : "false") << ",";
+    json << "\"bandwidth\":" << bandwidth;
+    json << "}";
+    return json.str();
+}
+
+NetworkGraph::NetworkGraph() : nextNodeId(1) {
+}
+
+NetworkGraph::NetworkGraph(const std::string& name) : networkName(name), nextNodeId(1) {
 }
 
 NetworkGraph::~NetworkGraph() {
-    nodes.clear();
-    links.clear();
-    routingTable.clear();
-    firewallRules.clear();
-    packetHistory.clear();
 }
 
-// Node management
-void NetworkGraph::addNode(const NetworkNode& node) {
-    nodes[node.ip] = node;
-    adjacencyList[node.ip] = std::vector<std::string>();
+void NetworkGraph::setName(const std::string& name) {
+    networkName = name;
+}
+
+const std::string& NetworkGraph::getName() const {
+    return networkName;
+}
+
+int NetworkGraph::addNode(std::shared_ptr<Node> node) {
+    int nodeId = nextNodeId++;
+    // node->setId(nodeId); // This line is commented out as per the edit hint
+    nodes.push_back(node);
+    adjacencyList[nodeId] = std::vector<int>();
+    std::cout << "Added node: " << node->getHostname() << " (ID: " << nodeId << ")" << std::endl;
+    return nodeId;
+}
+
+void NetworkGraph::removeNode(int nodeId) {
+    // Remove node from nodes vector
+    nodes.erase(
+        std::remove_if(nodes.begin(), nodes.end(),
+                      [nodeId](const std::shared_ptr<Node>& node) { return node->getId() == nodeId; }),
+        nodes.end()
+    );
     
-    // Add default route if this is the first node
-    if (nodes.size() == 1) {
-        Route defaultRoute("0.0.0.0/0", defaultGateway, "eth0");
-        defaultRoute.isDefault = true;
-        routingTable.push_back(defaultRoute);
-    }
-}
-
-void NetworkGraph::removeNode(const std::string& ip) {
-    if (nodes.find(ip) != nodes.end()) {
-        nodes.erase(ip);
-        adjacencyList.erase(ip);
-        
-        // Remove all links involving this node
-        links.erase(
-            std::remove_if(links.begin(), links.end(),
-                [&ip](const NetworkLink& link) {
-                    return link.sourceIP == ip || link.destIP == ip;
-                }),
-            links.end()
+    // Remove connections involving this node
+    connections.erase(
+        std::remove_if(connections.begin(), connections.end(),
+                      [nodeId](const NetworkConnection& conn) { 
+                          return conn.sourceId == nodeId || conn.targetId == nodeId; 
+                      }),
+        connections.end()
+    );
+    
+    // Remove from adjacency list
+    adjacencyList.erase(nodeId);
+    
+    // Remove from other nodes' adjacency lists
+    for (auto& pair : adjacencyList) {
+        pair.second.erase(
+            std::remove(pair.second.begin(), pair.second.end(), nodeId),
+            pair.second.end()
         );
-        
-        // Remove from adjacency lists
-        for (auto& adj : adjacencyList) {
-            adj.second.erase(
-                std::remove(adj.second.begin(), adj.second.end(), ip),
-                adj.second.end()
-            );
-        }
     }
+    
+    std::cout << "Removed node with ID: " << nodeId << std::endl;
 }
 
-NetworkNode* NetworkGraph::getNode(const std::string& ip) {
-    if (nodes.find(ip) != nodes.end()) {
-        return &nodes[ip];
+std::shared_ptr<Node> NetworkGraph::getNode(int nodeId) const {
+    for (const auto& node : nodes) {
+        if (node->getId() == nodeId) {
+            return node;
+        }
     }
     return nullptr;
 }
 
-std::vector<NetworkNode> NetworkGraph::getAllNodes() const {
-    std::vector<NetworkNode> result;
-    for (const auto& pair : nodes) {
-        result.push_back(pair.second);
-    }
-    return result;
+const std::vector<std::shared_ptr<Node>>& NetworkGraph::getAllNodes() const {
+    return nodes;
 }
 
-bool NetworkGraph::nodeExists(const std::string& ip) const {
-    return nodes.find(ip) != nodes.end();
+void NetworkGraph::addConnection(const NetworkConnection& connection) {
+    connections.push_back(connection);
+    
+    // Update adjacency list
+    adjacencyList[connection.sourceId].push_back(connection.targetId);
+    adjacencyList[connection.targetId].push_back(connection.sourceId);
+    
+    std::cout << "Added connection: " << connection.sourceId << " -> " << connection.targetId 
+              << " (" << connection.connectionType << ")" << std::endl;
 }
 
-// Link management
-void NetworkGraph::addLink(const NetworkLink& link) {
-    if (nodeExists(link.sourceIP) && nodeExists(link.destIP)) {
-        links.push_back(link);
-        
-        // Add to adjacency list
-        adjacencyList[link.sourceIP].push_back(link.destIP);
-        adjacencyList[link.destIP].push_back(link.sourceIP);
-    }
-}
-
-void NetworkGraph::removeLink(const std::string& sourceIP, const std::string& destIP) {
-    // Remove from links vector
-    links.erase(
-        std::remove_if(links.begin(), links.end(),
-            [&sourceIP, &destIP](const NetworkLink& link) {
-                return (link.sourceIP == sourceIP && link.destIP == destIP) ||
-                       (link.sourceIP == destIP && link.destIP == sourceIP);
-            }),
-        links.end()
+void NetworkGraph::removeConnection(int sourceId, int targetId) {
+    connections.erase(
+        std::remove_if(connections.begin(), connections.end(),
+                      [sourceId, targetId](const NetworkConnection& conn) { 
+                          return (conn.sourceId == sourceId && conn.targetId == targetId) ||
+                                 (conn.sourceId == targetId && conn.targetId == sourceId); 
+                      }),
+        connections.end()
     );
     
-    // Remove from adjacency lists
-    if (adjacencyList.find(sourceIP) != adjacencyList.end()) {
-        adjacencyList[sourceIP].erase(
-            std::remove(adjacencyList[sourceIP].begin(), adjacencyList[sourceIP].end(), destIP),
-            adjacencyList[sourceIP].end()
+    // Update adjacency list
+    if (adjacencyList.find(sourceId) != adjacencyList.end()) {
+        adjacencyList[sourceId].erase(
+            std::remove(adjacencyList[sourceId].begin(), adjacencyList[sourceId].end(), targetId),
+            adjacencyList[sourceId].end()
         );
     }
     
-    if (adjacencyList.find(destIP) != adjacencyList.end()) {
-        adjacencyList[destIP].erase(
-            std::remove(adjacencyList[destIP].begin(), adjacencyList[destIP].end(), sourceIP),
-            adjacencyList[destIP].end()
+    if (adjacencyList.find(targetId) != adjacencyList.end()) {
+        adjacencyList[targetId].erase(
+            std::remove(adjacencyList[targetId].begin(), adjacencyList[targetId].end(), sourceId),
+            adjacencyList[targetId].end()
         );
     }
+    
+    std::cout << "Removed connection: " << sourceId << " <-> " << targetId << std::endl;
 }
 
-std::vector<NetworkLink> NetworkGraph::getLinks() const {
-    return links;
+const std::vector<NetworkConnection>& NetworkGraph::getAllConnections() const {
+    return connections;
 }
 
-bool NetworkGraph::nodesAreConnected(const std::string& sourceIP, const std::string& destIP) const {
-    if (adjacencyList.find(sourceIP) == adjacencyList.end()) {
-        return false;
+std::vector<NetworkConnection> NetworkGraph::getConnectionsForNode(int nodeId) const {
+    std::vector<NetworkConnection> nodeConnections;
+    for (const auto& conn : connections) {
+        if (conn.sourceId == nodeId || conn.targetId == nodeId) {
+            nodeConnections.push_back(conn);
+        }
     }
-    
-    const auto& neighbors = adjacencyList.at(sourceIP);
-    return std::find(neighbors.begin(), neighbors.end(), destIP) != neighbors.end();
+    return nodeConnections;
 }
 
-// Routing
-std::vector<std::string> NetworkGraph::findPath(const std::string& sourceIP, const std::string& destIP) {
-    if (!nodeExists(sourceIP) || !nodeExists(destIP)) {
-        return std::vector<std::string>();
+std::vector<int> NetworkGraph::getNeighbors(int nodeId) const {
+    if (adjacencyList.find(nodeId) != adjacencyList.end()) {
+        return adjacencyList.at(nodeId);
     }
-    
-    // Try BFS first for simple path finding
-    auto path = bfs(sourceIP, destIP);
-    if (!path.empty()) {
-        return path;
-    }
-    
-    // Fall back to Dijkstra for more complex routing
-    return dijkstra(sourceIP, destIP);
+    return std::vector<int>();
 }
 
-std::vector<std::string> NetworkGraph::bfs(const std::string& startIP, const std::string& targetIP) {
-    std::queue<std::string> q;
-    std::unordered_map<std::string, std::string> parent;
-    std::unordered_set<std::string> visited;
+std::vector<std::vector<int>> NetworkGraph::findPaths(int sourceId, int targetId) const {
+    std::vector<std::vector<int>> paths;
+    std::queue<std::vector<int>> queue;
+    std::set<int> visited;
     
-    q.push(startIP);
-    visited.insert(startIP);
-    parent[startIP] = "";
+    queue.push({sourceId});
+    visited.insert(sourceId);
     
-    while (!q.empty()) {
-        std::string current = q.front();
-        q.pop();
+    while (!queue.empty()) {
+        std::vector<int> currentPath = queue.front();
+        queue.pop();
         
-        if (current == targetIP) {
-            // Reconstruct path
-            std::vector<std::string> path;
-            std::string node = targetIP;
-            while (!node.empty()) {
-                path.push_back(node);
-                node = parent[node];
-            }
-            std::reverse(path.begin(), path.end());
-            return path;
+        int currentNode = currentPath.back();
+        
+        if (currentNode == targetId) {
+            paths.push_back(currentPath);
+            continue;
         }
         
-        if (adjacencyList.find(current) != adjacencyList.end()) {
-            for (const std::string& neighbor : adjacencyList[current]) {
-                if (visited.find(neighbor) == visited.end()) {
-                    visited.insert(neighbor);
-                    parent[neighbor] = current;
-                    q.push(neighbor);
+        for (int neighbor : getNeighbors(currentNode)) {
+            if (visited.find(neighbor) == visited.end()) {
+                visited.insert(neighbor);
+                std::vector<int> newPath = currentPath;
+                newPath.push_back(neighbor);
+                queue.push(newPath);
+            }
+        }
+    }
+    
+    return paths;
+}
+
+bool NetworkGraph::isConnected(int sourceId, int targetId) const {
+    auto paths = findPaths(sourceId, targetId);
+    return !paths.empty();
+}
+
+void NetworkGraph::generateRandomTopology(int numNodes, int numConnections) {
+    std::random_device rd;
+    std::mt19937 gen(rd());
+    std::uniform_int_distribution<int> nodeTypeDist(0, 9);
+    std::uniform_int_distribution<int> ipDist(1, 254);
+    
+    // Clear existing topology
+    nodes.clear();
+    connections.clear();
+    adjacencyList.clear();
+    nextNodeId = 1;
+    
+    // Generate nodes
+    for (int i = 0; i < numNodes; ++i) {
+        NodeType type = static_cast<NodeType>(nodeTypeDist(gen));
+        std::string ip = "192.168.1." + std::to_string(ipDist(gen));
+        std::string hostname = "node-" + std::to_string(i + 1);
+        
+        auto node = std::make_shared<Node>(nextNodeId, ip, hostname, type);
+        node->generateDefaultServices();
+        node->generateDefaultUsers();
+        node->generateDefaultFiles();
+        
+        addNode(node);
+    }
+    
+    // Generate connections
+    std::uniform_int_distribution<int> nodeDist(0, numNodes - 1);
+    int connectionsCreated = 0;
+    
+    while (connectionsCreated < numConnections) {
+        int sourceIdx = nodeDist(gen);
+        int targetIdx = nodeDist(gen);
+        
+        if (sourceIdx != targetIdx) {
+            int sourceId = nodes[sourceIdx]->getId();
+            int targetId = nodes[targetIdx]->getId();
+            
+            // Check if connection already exists
+            bool exists = false;
+            for (const auto& conn : connections) {
+                if ((conn.sourceId == sourceId && conn.targetId == targetId) ||
+                    (conn.sourceId == targetId && conn.targetId == sourceId)) {
+                    exists = true;
+                    break;
                 }
             }
+            
+            if (!exists) {
+                std::string connectionTypes[] = {"Ethernet", "WiFi", "Fiber", "Copper"};
+                std::uniform_int_distribution<int> typeDist(0, 3);
+                std::string type = connectionTypes[typeDist(gen)];
+                
+                addConnection(NetworkConnection(sourceId, targetId, type));
+                connectionsCreated++;
+            }
         }
     }
     
-    return std::vector<std::string>();
+    std::cout << "Generated random topology with " << numNodes << " nodes and " 
+              << numConnections << " connections." << std::endl;
 }
 
-std::vector<std::string> NetworkGraph::dijkstra(const std::string& startIP, const std::string& targetIP) {
-    std::map<std::string, int> distances;
-    std::map<std::string, std::string> previous;
-    std::set<std::pair<int, std::string>> pq;
+void NetworkGraph::loadFromFile(const std::string& filename) {
+    std::cout << "Loading network topology from " << filename << std::endl;
+    // Implementation for loading from file
+}
+
+void NetworkGraph::saveToFile(const std::string& filename) const {
+    std::ofstream file(filename);
+    if (file.is_open()) {
+        file << toJson();
+        file.close();
+        std::cout << "Network topology saved to " << filename << std::endl;
+    }
+}
+
+std::string NetworkGraph::toJson() const {
+    std::ostringstream json;
+    json << "{";
+    json << "\"name\":\"" << networkName << "\",";
+    json << "\"nodes\":[";
+    for (size_t i = 0; i < nodes.size(); ++i) {
+        json << nodes[i]->toJson();
+        if (i < nodes.size() - 1) json << ",";
+    }
+    json << "],\"connections\":[";
+    for (size_t i = 0; i < connections.size(); ++i) {
+        json << connections[i].toJson();
+        if (i < connections.size() - 1) json << ",";
+    }
+    json << "]";
+    json << "}";
+    return json.str();
+}
+
+void NetworkGraph::printTopology() const {
+    std::cout << "\n=== Network Topology: " << networkName << " ===" << std::endl;
+    std::cout << "Nodes (" << nodes.size() << "):" << std::endl;
     
-    // Initialize distances
     for (const auto& node : nodes) {
-        distances[node.first] = std::numeric_limits<int>::max();
-    }
-    distances[startIP] = 0;
-    pq.insert({0, startIP});
-    
-    while (!pq.empty()) {
-        std::string current = pq.begin()->second;
-        pq.erase(pq.begin());
-        
-        if (current == targetIP) {
-            // Reconstruct path
-            std::vector<std::string> path;
-            std::string node = targetIP;
-            while (!node.empty()) {
-                path.push_back(node);
-                node = previous[node];
-            }
-            std::reverse(path.begin(), path.end());
-            return path;
-        }
-        
-        if (adjacencyList.find(current) != adjacencyList.end()) {
-            for (const std::string& neighbor : adjacencyList[current]) {
-                int weight = 1; // Default weight
-                
-                // Find link weight
-                for (const auto& link : links) {
-                    if ((link.sourceIP == current && link.destIP == neighbor) ||
-                        (link.sourceIP == neighbor && link.destIP == current)) {
-                        weight = link.latency;
-                        break;
-                    }
-                }
-                
-                int newDist = distances[current] + weight;
-                if (newDist < distances[neighbor]) {
-                    pq.erase({distances[neighbor], neighbor});
-                    distances[neighbor] = newDist;
-                    previous[neighbor] = current;
-                    pq.insert({newDist, neighbor});
-                }
-            }
-        }
+        std::cout << "  " << node->getId() << ": " << node->getHostname() 
+                  << " (" << node->getIp() << ") - " << node->getTypeName() << std::endl;
     }
     
-    return std::vector<std::string>();
-}
-
-std::vector<std::string> NetworkGraph::getReachableNodes(const std::string& sourceIP) {
-    std::vector<std::string> reachable;
-    std::unordered_set<std::string> visited;
-    std::queue<std::string> q;
-    
-    q.push(sourceIP);
-    visited.insert(sourceIP);
-    
-    while (!q.empty()) {
-        std::string current = q.front();
-        q.pop();
-        reachable.push_back(current);
-        
-        if (adjacencyList.find(current) != adjacencyList.end()) {
-            for (const std::string& neighbor : adjacencyList[current]) {
-                if (visited.find(neighbor) == visited.end()) {
-                    visited.insert(neighbor);
-                    q.push(neighbor);
-                }
-            }
-        }
+    std::cout << "\nConnections (" << connections.size() << "):" << std::endl;
+    for (const auto& conn : connections) {
+        std::cout << "  " << conn.sourceId << " <-> " << conn.targetId 
+                  << " (" << conn.connectionType << ")" << std::endl;
     }
-    
-    return reachable;
-}
-
-void NetworkGraph::addRoute(const Route& route) {
-    routingTable.push_back(route);
-}
-
-void NetworkGraph::removeRoute(const std::string& destination) {
-    routingTable.erase(
-        std::remove_if(routingTable.begin(), routingTable.end(),
-            [&destination](const Route& route) {
-                return route.destination == destination;
-            }),
-        routingTable.end()
-    );
-}
-
-std::vector<Route> NetworkGraph::getRoutingTable() const {
-    return routingTable;
-}
-
-// Packet simulation
-bool NetworkGraph::sendPacket(const Packet& packet) {
-    if (!nodeExists(packet.sourceIP) || !nodeExists(packet.destIP)) {
-        return false;
-    }
-    
-    // Check firewall rules
-    if (enableFirewall && !isPacketAllowed(packet)) {
-        Packet blockedPacket = packet;
-        blockedPacket.status = BLOCKED;
-        packetHistory.push_back(blockedPacket);
-        logPacketEvent(blockedPacket, "BLOCKED");
-        return false;
-    }
-    
-    // Add to packet queue
-    packetQueue.push(packet);
-    return true;
-}
-
-PacketStatus NetworkGraph::routePacket(Packet& packet) {
-    if (packet.ttl <= 0) {
-        packet.status = DROPPED;
-        packetHistory.push_back(packet);
-        logPacketEvent(packet, "TTL_EXPIRED");
-        return DROPPED;
-    }
-    
-    packet.ttl--;
-    
-    // Find path to destination
-    std::vector<std::string> path = findPath(packet.sourceIP, packet.destIP);
-    if (path.empty()) {
-        packet.status = DROPPED;
-        packetHistory.push_back(packet);
-        logPacketEvent(packet, "NO_ROUTE");
-        return DROPPED;
-    }
-    
-    // Simulate network conditions
-    simulatePacketLoss(packet);
-    simulateNetworkDelay(packet);
-    
-    if (packet.status == DROPPED) {
-        packetHistory.push_back(packet);
-        logPacketEvent(packet, "PACKET_LOSS");
-        return DROPPED;
-    }
-    
-    // Mark as delivered
-    packet.status = DELIVERED;
-    packetHistory.push_back(packet);
-    logPacketEvent(packet, "DELIVERED");
-    
-    // Notify packet handlers
-    for (const auto& handler : packetHandlers) {
-        handler(packet);
-    }
-    
-    return DELIVERED;
-}
-
-std::vector<Packet> NetworkGraph::getPacketHistory() const {
-    return packetHistory;
-}
-
-void NetworkGraph::clearPacketHistory() {
-    packetHistory.clear();
-}
-
-// Firewall
-void NetworkGraph::addFirewallRule(const FirewallRule& rule) {
-    firewallRules.push_back(rule);
-}
-
-void NetworkGraph::removeFirewallRule(int index) {
-    if (index >= 0 && index < static_cast<int>(firewallRules.size())) {
-        firewallRules.erase(firewallRules.begin() + index);
-    }
-}
-
-std::vector<FirewallRule> NetworkGraph::getFirewallRules() const {
-    return firewallRules;
-}
-
-bool NetworkGraph::isPacketAllowed(const Packet& packet) const {
-    return checkFirewallRules(packet);
-}
-
-bool NetworkGraph::checkFirewallRules(const Packet& packet) const {
-    for (const auto& rule : firewallRules) {
-        // Check if rule matches packet
-        bool matches = true;
-        
-        if (!rule.sourceIP.empty() && rule.sourceIP != packet.sourceIP) {
-            matches = false;
-        }
-        if (!rule.destIP.empty() && rule.destIP != packet.destIP) {
-            matches = false;
-        }
-        if (rule.sourcePort != 0 && rule.sourcePort != packet.sourcePort) {
-            matches = false;
-        }
-        if (rule.destPort != 0 && rule.destPort != packet.destPort) {
-            matches = false;
-        }
-        if (rule.protocol != packet.protocol) {
-            matches = false;
-        }
-        
-        if (matches) {
-            return rule.allow;
-        }
-    }
-    
-    // Default allow if no rules match
-    return true;
-}
-
-void NetworkGraph::setFirewallEnabled(bool enabled) {
-    enableFirewall = enabled;
-}
-
-// Network configuration
-void NetworkGraph::setDefaultGateway(const std::string& gateway) {
-    defaultGateway = gateway;
-}
-
-void NetworkGraph::setDNSServer(const std::string& dns) {
-    dnsServer = dns;
-}
-
-void NetworkGraph::setMaxHops(int hops) {
-    maxHops = hops;
-}
-
-std::string NetworkGraph::getDefaultGateway() const {
-    return defaultGateway;
-}
-
-std::string NetworkGraph::getDNSServer() const {
-    return dnsServer;
-}
-
-// Network discovery
-std::vector<std::string> NetworkGraph::discoverNetwork(const std::string& startIP) {
-    return getReachableNodes(startIP);
-}
-
-std::vector<std::string> NetworkGraph::getNeighbors(const std::string& ip) const {
-    if (adjacencyList.find(ip) != adjacencyList.end()) {
-        return adjacencyList.at(ip);
-    }
-    return std::vector<std::string>();
-}
-
-std::string NetworkGraph::getSubnet(const std::string& ip) const {
-    // Simple subnet calculation (assuming /24)
-    size_t lastDot = ip.find_last_of('.');
-    if (lastDot != std::string::npos) {
-        return ip.substr(0, lastDot) + ".0/24";
-    }
-    return ip;
-}
-
-// Network statistics
-int NetworkGraph::getNodeCount() const {
-    return static_cast<int>(nodes.size());
-}
-
-int NetworkGraph::getLinkCount() const {
-    return static_cast<int>(links.size());
-}
-
-int NetworkGraph::getPacketCount() const {
-    return static_cast<int>(packetHistory.size());
-}
-
-double NetworkGraph::getNetworkUtilization() const {
-    if (links.empty()) return 0.0;
-    
-    int activeLinks = 0;
-    for (const auto& link : links) {
-        if (link.isActive) activeLinks++;
-    }
-    
-    return static_cast<double>(activeLinks) / links.size();
-}
-
-// Event handling
-void NetworkGraph::addPacketHandler(std::function<void(const Packet&)> handler) {
-    packetHandlers.push_back(handler);
-}
-
-void NetworkGraph::removePacketHandler(int index) {
-    if (index >= 0 && index < static_cast<int>(packetHandlers.size())) {
-        packetHandlers.erase(packetHandlers.begin() + index);
-    }
-}
-
-// Network simulation
-void NetworkGraph::simulateNetworkTraffic() {
-    processPacketQueue();
-}
-
-void NetworkGraph::updateNetworkState() {
-    // Simulate network events
-    simulateNetworkTraffic();
-}
-
-// Utility methods
-std::string NetworkGraph::generateRandomIP() const {
-    std::uniform_int_distribution<> dis(1, 254);
-    std::stringstream ss;
-    ss << "192.168.1." << dis(const_cast<std::mt19937&>(gen));
-    return ss.str();
-}
-
-bool NetworkGraph::isValidIP(const std::string& ip) const {
-    // Simple IP validation
-    std::stringstream ss(ip);
-    std::string segment;
-    int count = 0;
-    
-    while (std::getline(ss, segment, '.')) {
-        if (count >= 4) return false;
-        
-        try {
-            int num = std::stoi(segment);
-            if (num < 0 || num > 255) return false;
-        } catch (...) {
-            return false;
-        }
-        
-        count++;
-    }
-    
-    return count == 4;
-}
-
-std::string NetworkGraph::getNetworkAddress(const std::string& ip, int subnetMask) const {
-    // Simple network address calculation
-    size_t lastDot = ip.find_last_of('.');
-    if (lastDot != std::string::npos) {
-        return ip.substr(0, lastDot) + ".0";
-    }
-    return ip;
-}
-
-bool NetworkGraph::isInSameSubnet(const std::string& ip1, const std::string& ip2, int subnetMask) const {
-    std::string network1 = getNetworkAddress(ip1, subnetMask);
-    std::string network2 = getNetworkAddress(ip2, subnetMask);
-    return network1 == network2;
-}
-
-// Private helper methods
-void NetworkGraph::processPacketQueue() {
-    while (!packetQueue.empty()) {
-        Packet packet = packetQueue.front();
-        packetQueue.pop();
-        routePacket(packet);
-    }
-}
-
-void NetworkGraph::simulatePacketLoss(Packet& packet) {
-    // 1% packet loss probability
-    std::uniform_real_distribution<> dis(0.0, 1.0);
-    if (dis(gen) < 0.01) {
-        packet.status = DROPPED;
-    }
-}
-
-void NetworkGraph::simulateNetworkDelay(Packet& packet) {
-    // Simulate network delay
-    std::uniform_int_distribution<> delayDis(1, 10);
-    int delay = delayDis(gen);
-    std::this_thread::sleep_for(std::chrono::milliseconds(delay));
-}
-
-std::string NetworkGraph::findNextHop(const std::string& sourceIP, const std::string& destIP) {
-    std::vector<std::string> path = findPath(sourceIP, destIP);
-    if (path.size() >= 2) {
-        return path[1]; // Next hop is the second element
-    }
-    return destIP; // Direct connection
-}
-
-void NetworkGraph::logPacketEvent(const Packet& packet, const std::string& event) {
-    // In a real implementation, this would log to a file or console
-    // For now, we'll just store the event in packet history
-}
+    std::cout << "=====================================" << std::endl;
+} 

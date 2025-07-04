@@ -5,108 +5,129 @@ project(RedNet VERSION 1.0.0 LANGUAGES CXX)
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
+# Set build type if not specified
+if(NOT CMAKE_BUILD_TYPE)
+    set(CMAKE_BUILD_TYPE Release)
+endif()
+
 # Compiler flags
-set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wall -Wextra -ferror-limit=2000 -Wno-format-security")
+set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wall -Wextra")
 set(CMAKE_CXX_FLAGS_DEBUG "${CMAKE_CXX_FLAGS_DEBUG} -g -O0")
 set(CMAKE_CXX_FLAGS_RELEASE "${CMAKE_CXX_FLAGS_RELEASE} -O3")
 
-# macOS specific flags
-if(APPLE)
-    set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -x objective-c++")
-    add_definitions(-DGL_SILENCE_DEPRECATION)
-    # Suppress GLFW null character warnings and UTF-8 errors
-    set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wno-null-character -Wno-invalid-source-encoding")
-endif()
-
 # Find required packages
-find_package(OpenGL REQUIRED)
-find_package(PkgConfig REQUIRED)
-pkg_check_modules(GLFW REQUIRED glfw3)
-
-# Include GLFW CFLAGS
-include_directories(${GLFW_INCLUDE_DIRS})
-
-# Manual ImGui setup to avoid corruption issues
-set(IMGUI_DIR "${CMAKE_CURRENT_SOURCE_DIR}/external/imgui")
-if(NOT EXISTS "${IMGUI_DIR}")
-    message(STATUS "Downloading ImGui...")
-    file(MAKE_DIRECTORY "${CMAKE_CURRENT_SOURCE_DIR}/external")
-    execute_process(
-        COMMAND git clone --depth 1 --branch v1.90.4 https://github.com/ocornut/imgui.git "${IMGUI_DIR}"
-        WORKING_DIRECTORY "${CMAKE_CURRENT_SOURCE_DIR}/external"
-        RESULT_VARIABLE IMGUI_DOWNLOAD_RESULT
-    )
-    if(NOT IMGUI_DOWNLOAD_RESULT EQUAL 0)
-        message(FATAL_ERROR "Failed to download ImGui")
-    endif()
-endif()
-
-# Add ImGui source files
-set(IMGUI_SOURCES
-    "${IMGUI_DIR}/imgui.cpp"
-    "${IMGUI_DIR}/imgui_demo.cpp"
-    "${IMGUI_DIR}/imgui_draw.cpp"
-    "${IMGUI_DIR}/imgui_tables.cpp"
-    "${IMGUI_DIR}/imgui_widgets.cpp"
-    "${IMGUI_DIR}/backends/imgui_impl_glfw.cpp"
-    "${IMGUI_DIR}/backends/imgui_impl_opengl3.cpp"
-)
+find_package(Threads REQUIRED)
 
 # Include directories
-include_directories(
-    ${CMAKE_CURRENT_SOURCE_DIR}/ai
-    ${CMAKE_CURRENT_SOURCE_DIR}/engine
-    ${CMAKE_CURRENT_SOURCE_DIR}/network
-    ${CMAKE_CURRENT_SOURCE_DIR}/shell
-    ${CMAKE_CURRENT_SOURCE_DIR}/ui
-    ${CMAKE_CURRENT_SOURCE_DIR}/utils
-    ${IMGUI_DIR}
-    ${GLFW_INCLUDE_DIRS}
+include_directories(${CMAKE_SOURCE_DIR})
+
+# ImGui (Dear ImGui) for desktop GUI
+include(FetchContent)
+FetchContent_Declare(
+  imgui
+  GIT_REPOSITORY https://github.com/ocornut/imgui.git
+  GIT_TAG v1.90.4
+)
+FetchContent_MakeAvailable(imgui)
+
+# ImGui requires OpenGL and GLFW (for window/input)
+find_package(OpenGL REQUIRED)
+find_package(PkgConfig REQUIRED)
+pkg_search_module(GLFW REQUIRED glfw3)
+
+include_directories(${imgui_SOURCE_DIR} ${GLFW_INCLUDE_DIRS})
+
+# Add ImGui source files directly
+set(IMGUI_SOURCES
+    ${imgui_SOURCE_DIR}/imgui.cpp
+    ${imgui_SOURCE_DIR}/imgui_demo.cpp
+    ${imgui_SOURCE_DIR}/imgui_draw.cpp
+    ${imgui_SOURCE_DIR}/imgui_tables.cpp
+    ${imgui_SOURCE_DIR}/imgui_widgets.cpp
+    ${imgui_SOURCE_DIR}/backends/imgui_impl_glfw.cpp
+    ${imgui_SOURCE_DIR}/backends/imgui_impl_opengl3.cpp
+    external/imgui/misc/stb_image_impl.cpp
 )
 
-# Source files
-set(SOURCES
-    main.cpp
-    ai/AIAgent.cpp
-    ai/AIAgentManager.cpp
-    engine/Exploit.cpp
+# Engine source files
+set(ENGINE_SOURCES
     engine/Node.cpp
-    engine/Payload.cpp
     engine/Scanner.cpp
-    network/NetworkGraph.cpp
-    network/Packet.cpp
-    network/TopologyGenerator.cpp
-    shell/Shell.cpp
-    ui/AdvancedVisualizer.cpp
-    ui/Visualizer.cpp
-    ui/desktop/ImGuiDashboard.cpp
-    utils/Config.cpp
-    ${IMGUI_SOURCES}
+    engine/Exploit.cpp
+    engine/Payload.cpp
 )
 
-# Create executable
-add_executable(RedNet ${SOURCES})
+# Network source files
+set(NETWORK_SOURCES
+    network/NetworkGraph.cpp
+    network/TopologyGenerator.cpp
+)
+
+# Shell source files
+set(SHELL_SOURCES
+    shell/Shell.cpp
+)
+
+# UI source files (with ImGui)
+set(UI_SOURCES
+    ${IMGUI_SOURCES}
+    ui/desktop/ImGuiDashboard.cpp
+    ui/AdvancedVisualizer.cpp
+)
+
+# AI source files
+set(AI_SOURCES
+    ai/AIAgentManager.cpp
+)
+
+# Utils source files
+set(UTILS_SOURCES
+    utils/Config.cpp
+    utils/Logger.cpp
+)
+
+# Missions source files
+set(MISSIONS_SOURCES
+    missions/Mission.cpp
+    missions/mission_launcher.cpp
+)
+
+# Main executable
+set(MACOSX_BUNDLE_ICON_FILE RedNet.icns)
+set(MACOSX_BUNDLE_BUNDLE_NAME "RedNet")
+set(MACOSX_BUNDLE_GUI_IDENTIFIER "com.example.RedNet")
+set(MACOSX_BUNDLE_INFO_PLIST ${CMAKE_SOURCE_DIR}/resources/Info.plist)
+
+set(APP_ICON ${CMAKE_SOURCE_DIR}/resources/RedNet.icns)
+
+add_executable(RedNet MACOSX_BUNDLE
+    main.cpp
+    ${ENGINE_SOURCES}
+    ${NETWORK_SOURCES}
+    ${SHELL_SOURCES}
+    ${UI_SOURCES}
+    ${AI_SOURCES}
+    ${UTILS_SOURCES}
+    ${MISSIONS_SOURCES}
+    external/imgui/misc/stb_image_impl.cpp
+)
 
 # Link libraries (with GUI support)
-target_link_libraries(RedNet PRIVATE ${OPENGL_LIBRARIES} ${GLFW_LIBRARIES})
+target_link_libraries(RedNet PRIVATE Threads::Threads ${OPENGL_LIBRARIES} /opt/homebrew/Cellar/glfw/3.4/lib/libglfw.dylib)
 
-# macOS app bundle configuration
-if(APPLE)
-    set_target_properties(RedNet PROPERTIES
-        MACOSX_BUNDLE TRUE
-        MACOSX_BUNDLE_INFO_PLIST "${CMAKE_CURRENT_SOURCE_DIR}/resources/Info.plist"
-        MACOSX_BUNDLE_ICON_FILE "${CMAKE_CURRENT_SOURCE_DIR}/resources/RedNet.icns"
-    )
-    
-    # Install the app bundle
-    install(TARGETS RedNet
-        BUNDLE DESTINATION .
-        RUNTIME DESTINATION bin
-    )
-else()
-    # Install executable on other platforms
-    install(TARGETS RedNet DESTINATION bin)
-endif()
+# Set output directory
+set_target_properties(RedNet PROPERTIES
+    RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/bin
+    MACOSX_BUNDLE TRUE
+    MACOSX_BUNDLE_INFO_PLIST ${MACOSX_BUNDLE_INFO_PLIST}
+    RESOURCE "${APP_ICON}"
+)
+
+# Installation
+install(TARGETS RedNet
+    RUNTIME DESTINATION bin
+    BUNDLE DESTINATION .
+)
 
 # Copy headers for development
 install(DIRECTORY engine/

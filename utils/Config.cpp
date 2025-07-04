@@ -358,7 +358,7 @@ void ConfigManager::initializeDefaultProfiles() {
     NetworkProfile corporate;
     corporate.name = "corporate";
     corporate.description = "Typical corporate network with multiple departments";
-    corporate.type = CORPORATE_NETWORK;
+    corporate.type = TopologyType::CORPORATE;
     corporate.nodeCount = 20;
     corporate.linkCount = 25;
     corporate.vulnerabilityDensity = 0.4;
@@ -373,7 +373,7 @@ void ConfigManager::initializeDefaultProfiles() {
     NetworkProfile datacenter;
     datacenter.name = "datacenter";
     datacenter.description = "High-performance data center environment";
-    datacenter.type = DATA_CENTER;
+    datacenter.type = TopologyType::DATA_CENTER;
     datacenter.nodeCount = 50;
     datacenter.linkCount = 100;
     datacenter.vulnerabilityDensity = 0.2;
@@ -387,7 +387,7 @@ void ConfigManager::initializeDefaultProfiles() {
     NetworkProfile home;
     home.name = "home";
     home.description = "Small home network with basic devices";
-    home.type = HOME_NETWORK;
+    home.type = TopologyType::HOME;
     home.nodeCount = 5;
     home.linkCount = 4;
     home.vulnerabilityDensity = 0.6;
@@ -406,8 +406,8 @@ void ConfigManager::initializeDefaultScenarios() {
     beginner.difficulty = "easy";
     beginner.networkProfile = networkProfiles["home"];
     beginner.exploitConfig.defaultSuccessRate = 0.7;
-    beginner.securityConfig.level = LOW_SECURITY;
-    beginner.aiConfig.difficulty = NOVICE_AI;
+    beginner.securityConfig.level = 0; // LOW_SECURITY
+    beginner.aiConfig.difficulty = static_cast<AIDifficulty>(0); // NOVICE_AI
     beginner.objectives = {"Compromise one device", "Learn basic scanning"};
     scenarioTemplates["beginner"] = beginner;
     
@@ -418,8 +418,8 @@ void ConfigManager::initializeDefaultScenarios() {
     intermediate.difficulty = "medium";
     intermediate.networkProfile = networkProfiles["corporate"];
     intermediate.exploitConfig.defaultSuccessRate = 0.5;
-    intermediate.securityConfig.level = MEDIUM_SECURITY;
-    intermediate.aiConfig.difficulty = INTERMEDIATE_AI;
+    intermediate.securityConfig.level = 1; // MEDIUM_SECURITY
+    intermediate.aiConfig.difficulty = static_cast<AIDifficulty>(1); // INTERMEDIATE_AI
     intermediate.objectives = {"Compromise multiple devices", "Perform lateral movement"};
     scenarioTemplates["intermediate"] = intermediate;
     
@@ -430,8 +430,8 @@ void ConfigManager::initializeDefaultScenarios() {
     advanced.difficulty = "hard";
     advanced.networkProfile = networkProfiles["datacenter"];
     advanced.exploitConfig.defaultSuccessRate = 0.3;
-    advanced.securityConfig.level = HIGH_SECURITY;
-    advanced.aiConfig.difficulty = ADVANCED_AI;
+    advanced.securityConfig.level = 2; // HIGH_SECURITY
+    advanced.aiConfig.difficulty = static_cast<AIDifficulty>(2); // ADVANCED_AI
     advanced.objectives = {"Compromise critical systems", "Evade detection"};
     scenarioTemplates["advanced"] = advanced;
 }
@@ -518,7 +518,7 @@ ConfigBuilder& ConfigBuilder::withDisabledExploit(std::string exploit) {
     return *this;
 }
 
-ConfigBuilder& ConfigBuilder::withSecurityLevel(SecurityLevel level) {
+ConfigBuilder& ConfigBuilder::withSecurityLevel(int level) {
     SecurityConfig securityConfig = config.getSecurityConfig();
     securityConfig.level = level;
     config.setSecurityConfig(securityConfig);
@@ -638,7 +638,7 @@ namespace DefaultConfigs {
         NetworkProfile profile;
         profile.name = "corporate";
         profile.description = "Typical corporate network";
-        profile.type = CORPORATE_NETWORK;
+        profile.type = TopologyType::CORPORATE;
         profile.nodeCount = 20;
         profile.linkCount = 25;
         profile.vulnerabilityDensity = 0.4;
@@ -649,7 +649,7 @@ namespace DefaultConfigs {
         NetworkProfile profile;
         profile.name = "datacenter";
         profile.description = "High-performance data center";
-        profile.type = DATA_CENTER;
+        profile.type = TopologyType::DATA_CENTER;
         profile.nodeCount = 50;
         profile.linkCount = 100;
         profile.vulnerabilityDensity = 0.2;
@@ -660,7 +660,7 @@ namespace DefaultConfigs {
         NetworkProfile profile;
         profile.name = "home";
         profile.description = "Small home network";
-        profile.type = HOME_NETWORK;
+        profile.type = TopologyType::HOME;
         profile.nodeCount = 5;
         profile.linkCount = 4;
         profile.vulnerabilityDensity = 0.6;
@@ -671,7 +671,7 @@ namespace DefaultConfigs {
         NetworkProfile profile;
         profile.name = "star";
         profile.description = "Star topology network";
-        profile.type = STAR_TOPOLOGY;
+        profile.type = TopologyType::STAR;
         profile.nodeCount = 5;
         profile.linkCount = 4;
         profile.vulnerabilityDensity = 0.3;
@@ -682,7 +682,7 @@ namespace DefaultConfigs {
         NetworkProfile profile;
         profile.name = "mesh";
         profile.description = "Mesh topology network";
-        profile.type = MESH_TOPOLOGY;
+        profile.type = TopologyType::MESH;
         profile.nodeCount = 6;
         profile.linkCount = 15;
         profile.vulnerabilityDensity = 0.4;
@@ -696,8 +696,8 @@ namespace DefaultConfigs {
         scenario.difficulty = "easy";
         scenario.networkProfile = createHomeNetwork();
         scenario.exploitConfig.defaultSuccessRate = 0.7;
-        scenario.securityConfig.level = LOW_SECURITY;
-        scenario.aiConfig.difficulty = NOVICE_AI;
+        scenario.securityConfig.level = 0; // LOW_SECURITY
+        scenario.aiConfig.difficulty = static_cast<AIDifficulty>(0); // NOVICE_AI
         return scenario;
     }
     
@@ -708,8 +708,8 @@ namespace DefaultConfigs {
         scenario.difficulty = "medium";
         scenario.networkProfile = createCorporateNetwork();
         scenario.exploitConfig.defaultSuccessRate = 0.5;
-        scenario.securityConfig.level = MEDIUM_SECURITY;
-        scenario.aiConfig.difficulty = INTERMEDIATE_AI;
+        scenario.securityConfig.level = 1; // MEDIUM_SECURITY
+        scenario.aiConfig.difficulty = static_cast<AIDifficulty>(1); // INTERMEDIATE_AI
         return scenario;
     }
     
@@ -720,8 +720,8 @@ namespace DefaultConfigs {
         scenario.difficulty = "hard";
         scenario.networkProfile = createDataCenter();
         scenario.exploitConfig.defaultSuccessRate = 0.3;
-        scenario.securityConfig.level = HIGH_SECURITY;
-        scenario.aiConfig.difficulty = ADVANCED_AI;
+        scenario.securityConfig.level = 2; // HIGH_SECURITY
+        scenario.aiConfig.difficulty = static_cast<AIDifficulty>(2); // ADVANCED_AI
         return scenario;
     }
     
@@ -732,8 +732,8 @@ namespace DefaultConfigs {
         scenario.difficulty = "expert";
         scenario.networkProfile = createDataCenter();
         scenario.exploitConfig.defaultSuccessRate = 0.2;
-        scenario.securityConfig.level = MAXIMUM_SECURITY;
-        scenario.aiConfig.difficulty = EXPERT_AI;
+        scenario.securityConfig.level = 3; // MAXIMUM_SECURITY
+        scenario.aiConfig.difficulty = static_cast<AIDifficulty>(3); // EXPERT_AI
         return scenario;
     }
     
@@ -744,8 +744,8 @@ namespace DefaultConfigs {
         scenario.difficulty = "custom";
         scenario.networkProfile = createCorporateNetwork();
         scenario.exploitConfig.defaultSuccessRate = 0.5;
-        scenario.securityConfig.level = MEDIUM_SECURITY;
-        scenario.aiConfig.difficulty = INTERMEDIATE_AI;
+        scenario.securityConfig.level = 1; // MEDIUM_SECURITY
+        scenario.aiConfig.difficulty = static_cast<AIDifficulty>(1); // INTERMEDIATE_AI
         return scenario;
     }
 } 
