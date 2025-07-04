@@ -1,299 +1,115 @@
-# RedNet - AI-Powered Offensive Cybersecurity Simulator
+<!-- GitHub Profile README for Silviu Hermeneanu -->
 
-[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
-[![C++](https://img.shields.io/badge/C++-17-blue.svg)](https://isocpp.org/)
-[![Platform](https://img.shields.io/badge/Platform-Linux%20%7C%20Windows%20%7C%20macOS-lightgrey.svg)](https://github.com/hsilviu05/RedNet)
+<img src="https://readme-typing-svg.herokuapp.com?font=Fira+Code&pause=1000&color=1DB954&center=true&vCenter=true&width=435&lines=Hi+I'm+Silviu+Hermeneanu;Computer+Science+Student;C%2B%2B+%2F+C%23+Developer;AI%2C+WPF+%26+Cybersecurity+Enthusiast" />
 
-## 🎯 Overview
-
-RedNet is a sophisticated multi-agent, AI-driven hacking simulation engine where bots learn to exploit, pivot, and escalate in a virtual network. It combines C++, reinforcement learning, simulated networking, and OS-level APIs to create a realistic cybersecurity training environment.
-
-## 🧠 Core Features
-
-### 🔍 Target Scanning Engine
-- **Nmap-like simulation**: Port scanning, banner grabbing, fingerprinting
-- **Service enumeration**: Automatic detection of running services
-- **Network topology discovery**: Map network structure and relationships
-
-### 💣 Exploit Framework
-- **Realistic vulnerabilities**: Weak passwords, open services, buffer overflows
-- **Exploit chaining**: Combine multiple exploits for complex attack paths
-- **Success probability**: Realistic exploit success rates based on target configuration
-
-### 🧬 AI Agents (Reinforcement Learning)
-- **Red team agents**: Discover IPs, probe services, select exploits
-- **Lateral movement**: Chain exploits to move between systems
-- **Stealth techniques**: Learn to avoid detection
-- **Q-learning implementation**: Adaptive decision making
-
-### 🖥️ Virtual Network
-- **Simulated LAN**: Virtual machines with realistic configurations
-- **Topology mapping**: Tree/graph-based network structure
-- **Event-based communication**: Realistic network traffic simulation
-
-### 🧪 Shell & Payload Engine
-- **Shell access**: Limited command set on vulnerable nodes
-- **Data exfiltration**: Extract secrets and sensitive files
-- **Persistence mechanisms**: Install backdoors and maintain access
-- **Lateral movement**: Propagate through the network
-
-### 📜 Scriptable Missions
-- **JSON/YAML configuration**: Define missions, nodes, and objectives
-- **Scenario templates**: Pre-built attack scenarios
-- **Objective tracking**: Monitor mission progress and success
-
-## 🏗️ Architecture
-
-```
-RedNet/
-├── main.cpp                 # Main simulation entry point
-├── engine/                  # Core simulation components
-│   ├── Node.h/cpp          # Virtual machine abstraction
-│   ├── Exploit.h/cpp       # Exploit framework and database
-│   ├── Scanner.h/cpp       # Network scanning engine
-│   └── Payload.h/cpp       # Post-exploitation payloads
-├── network/                # Network simulation (planned)
-│   ├── NetworkGraph.h      # Network topology management
-│   ├── Packet.h           # Network packet simulation
-│   └── TopologyGenerator.h # Network generation
-├── ai/                     # AI agents (planned)
-│   ├── RedAgent.h         # Red team AI agent
-│   ├── QTable.h           # Q-learning implementation
-│   └── RewardSystem.h     # Reward calculation
-├── missions/               # Mission system (planned)
-│   ├── mission_001.json   # Mission definitions
-│   └── parser.hpp         # Mission parser
-├── shell/                  # Virtual shell (planned)
-│   ├── CommandInterpreter.h # Command processing
-│   └── FileSystemSim.h    # Virtual file system
-├── utils/                  # Utilities (planned)
-│   ├── Logger.h           # Logging system
-│   ├── Timer.h            # Timing utilities
-│   └── ConfigLoader.h     # Configuration management
-├── ui/                     # User interface (planned)
-│   ├── Menu.h             # CLI interface
-│   └── NetworkViewer.cpp  # Network visualization
-└── tests/                  # Unit tests (planned)
-```
-
-## 🚀 Current Implementation Status
-
-### ✅ Completed Components
-
-1. **Node System** - Virtual machine simulation with:
-   - Multiple OS types (Linux, Windows, macOS)
-   - Service management and configuration
-   - Vulnerability tracking
-   - File system simulation
-   - User account management
-   - Node templates (Web server, File server, Workstation, Domain Controller)
-
-2. **Scanner Engine** - Network discovery with:
-   - Port scanning simulation
-   - Service fingerprinting
-   - Banner grabbing
-   - Network range scanning
-   - Realistic timing and delays
-
-3. **Exploit Framework** - Vulnerability exploitation with:
-   - Base exploit interface
-   - Brute force attacks
-   - Service-specific exploits
-   - Buffer overflow simulation
-   - Privilege escalation
-   - Exploit chaining
-   - Exploit database management
-
-4. **Payload System** - Post-exploitation capabilities:
-   - Shell access with command restrictions
-   - Data exfiltration from files and directories
-   - Persistence mechanisms (cron jobs, SSH keys, hidden services)
-   - Reconnaissance and information gathering
-   - Lateral movement through networks
-   - Payload chaining
-
-### 🔄 In Progress
-- Network topology simulation
-- AI agent implementation
-- Mission system
-- User interface
-
-### 📋 Planned Features
-- Blue team agents (defenders)
-- Advanced AI algorithms
-- Real-time visualization
-- Multi-player scenarios
-- Export/import capabilities
-
-## 🛠️ Building RedNet
-
-### Prerequisites
-- C++17 compatible compiler (GCC 7+, Clang 5+, MSVC 2017+)
-- CMake 3.10+
-- Git
-
-### Build Instructions
-
-```bash
-# Clone the repository
-git clone https://github.com/hsilviu05/RedNet.git
-cd RedNet
-
-# Create build directory
-mkdir build && cd build
-
-# Configure and build
-cmake ..
-make -j$(nproc)
-
-# Run the simulator
-./RedNet
-```
-
-### Development Setup
-
-```bash
-# Install development dependencies
-sudo apt-get install build-essential cmake git
-
-# Clone and setup
-git clone https://github.com/hsilviu05/RedNet.git
-cd RedNet
-mkdir build && cd build
-cmake -DCMAKE_BUILD_TYPE=Debug ..
-make
-```
-
-## 🎮 Usage Examples
-
-### Basic Network Scanning
-```cpp
-#include "engine/Scanner.h"
-#include "engine/Node.h"
-
-int main() {
-    // Create a virtual machine
-    Node target("192.168.1.100", LINUX);
-    target.createWebServer();
-    
-    // Scan the target
-    Scanner scanner;
-    scanner.scanHost("192.168.1.100");
-    
-    // Get scan results
-    auto results = scanner.getResults();
-    return 0;
-}
-```
-
-### Exploit Execution
-```cpp
-#include "engine/Exploit.h"
-#include "engine/Node.h"
-
-int main() {
-    // Create target and exploit database
-    Node target("192.168.1.100", LINUX);
-    target.createWorkstation();
-    
-    ExploitDatabase exploits;
-    auto applicableExploits = exploits.getExploitsForNode(target);
-    
-    // Execute exploits
-    for (auto exploit : applicableExploits) {
-        ExploitResult result = exploit->execute(target);
-        if (result.success) {
-            std::cout << "Exploit successful: " << result.message << std::endl;
-        }
-    }
-    return 0;
-}
-```
-
-### Payload Execution
-```cpp
-#include "engine/Payload.h"
-#include "engine/Node.h"
-
-int main() {
-    // Create compromised target
-    Node target("192.168.1.100", LINUX);
-    target.createFileServer();
-    target.markCompromised();
-    
-    // Execute payloads
-    PayloadDatabase payloads;
-    auto shellPayload = payloads.findPayloadByName("Shell Access");
-    
-    if (shellPayload) {
-        PayloadResult result = shellPayload->execute(target);
-        if (result.success) {
-            std::cout << "Shell access established" << std::endl;
-        }
-    }
-    return 0;
-}
-```
-
-## 🔧 Configuration
-
-### Node Templates
-RedNet includes several pre-configured node templates:
-
-- **Web Server**: HTTP, HTTPS, SSH services
-- **File Server**: FTP, SMB, SSH services
-- **Workstation**: RDP, RPC, NetBIOS services
-- **Domain Controller**: LDAP, Kerberos, RPC services
-
-### Exploit Database
-The exploit database includes:
-- Brute force attacks
-- Service-specific vulnerabilities
-- Buffer overflow exploits
-- Privilege escalation methods
-
-### Payload Types
-Available payload types:
-- Shell access and command execution
-- Data exfiltration
-- Persistence mechanisms
-- Reconnaissance
-- Lateral movement
-
-## 🤝 Contributing
-
-We welcome contributions! Please see our [Contributing Guidelines](CONTRIBUTING.md) for details.
-
-### Development Workflow
-1. Fork the repository
-2. Create a feature branch (`git checkout -b feature/amazing-feature`)
-3. Commit your changes (`git commit -m 'Add amazing feature'`)
-4. Push to the branch (`git push origin feature/amazing-feature`)
-5. Open a Pull Request
-
-## 📄 License
-
-This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
-
-## 🛡️ Security Notice
-
-**⚠️ IMPORTANT**: RedNet is designed for educational and research purposes only. It simulates cybersecurity attacks in a controlled, virtual environment. Do not use this software against real systems without explicit permission.
-
-## 🙏 Acknowledgments
-
-- Inspired by real-world penetration testing tools
-- Built with modern C++ practices
-- Designed for cybersecurity education and research
-
-## 📞 Support
-
-- **Issues**: [GitHub Issues](https://github.com/hsilviu05/RedNet/issues)
-- **Discussions**: [GitHub Discussions](https://github.com/hsilviu05/RedNet/discussions)
-- **Wiki**: [Project Wiki](https://github.com/hsilviu05/RedNet/wiki)
+<h3 align="center">Second-year Computer Science student at the Faculty of Mathematics and Computer Science, passionate about AI, system programming, and cybersecurity.</h3>
 
 ---
 
-**RedNet** - Empowering cybersecurity education through AI-driven simulation.
+### 🚀 About Me
 
-*Built with ❤️ for the cybersecurity community* 
-# RedNet
+- 👨‍💻 I'm @hsilviu05  
+- 🧠 I love building projects in **C++**, **C#**, and **Swift**  
+- 🛠️ Experienced with **WPF**, **Emgu CV**, **Arduino**, and **Xcode**
+- 🎯 Currently working on:  
+  - 🧠 AI-powered mobile apps  
+  - 🕹️ C++ hacking simulators & wargame frameworks  
+- 🌱 I'm currently learning advanced AI techniques and macOS/iOS development
+
+---
+
+### 📫 Connect with Me
+
+<p align="center">
+  📧 <b>Email me:</b> <a href="mailto:her.silviu.i@gmail.com">her.silviu.i@gmail.com</a> <br />
+  🔗 <b>Connect on LinkedIn:</b> <a href="https://www.linkedin.com/in/silviu-i-hermeneanu/">silviu-i-hermeneanu</a> <br />
+  💻 <b>Check out my code:</b> <a href="https://github.com/hsilviu05">github.com/hsilviu05</a>
+</p>
+
+
+---
+
+## 🔭 Featured Projects
+
+### 🚀 [Finite‑Automaton](https://github.com/hsilviu05/Finite-Automaton)
+> C++ · Theory · Automata  
+A flexible simulation library for deterministic and non-deterministic finite automata:
+- Build and test from regular expressions
+- Epsilon-closure and transformation functions
+- Word acceptance + command-line usage
+
+---
+
+### 🛡️ [CyberSim](https://github.com/hsilviu05/CyberSim)
+> C++ · Cybersecurity Simulator  
+Terminal-based hacking simulation game with CTF mechanics:
+- Simulates real exploits like weak password, EternalBlue, FTP
+- Manual CLI + flag discovery & enumeration
+- Uses C++20, Makefile, tested with GoogleTest
+
+---
+
+### 🤖 [NexusAI](https://github.com/hsilviu05/NexusAI)
+> C# · Avalonia · Local LLM Assistant  
+An AI-powered cross-platform assistant with chat memory, voice input/output:
+- Runs locally with Ollama + Vosk
+- Switch between assistant personas
+- Avalonia UI with MVVM + chat history saving
+
+---
+
+### 🔬 [CyberSimLab](https://github.com/hsilviu05/CyberSimLab)
+> C# · Cross-platform · Educational  
+A security lab environment simulator:
+- Password brute force simulator with timing metrics
+- Hash algorithms: MD5, SHA1, SHA256
+- Built using Avalonia, ReactiveUI, .NET 9
+
+---
+
+### 🌦️ [WeatherApp](https://github.com/hsilviu05/Weather_app)
+> Java · Client-Server  
+Networked weather app with CLI interface and JSON management:
+- Handles user authentication and city-based forecasts
+- Admin uploads raw forecast data via JSON
+- Built using Java sockets and custom protocols
+
+---
+
+### 🧮 [Calc](https://github.com/hsilviu05/Calc)
+> C# · WPF Calculator  
+A modern Windows calculator clone with both **Standard** and **Programmer** modes:
+- Includes memory ops, base conversion, grouping
+- Handles keyboard/mouse input & invalid ops gracefully
+- Stores user settings across sessions
+
+---
+
+### 🛠️ Languages and Tools
+
+<p align="left">
+  <img src="https://img.shields.io/badge/C++-00599C?style=for-the-badge&logo=c%2B%2B&logoColor=white"/>
+  <img src="https://img.shields.io/badge/C%23-239120?style=for-the-badge&logo=c-sharp&logoColor=white"/>
+  <img src="https://img.shields.io/badge/WPF-68217A?style=for-the-badge&logo=windows&logoColor=white"/>
+  <img src="https://img.shields.io/badge/Swift-F05138?style=for-the-badge&logo=swift&logoColor=white"/>
+  <img src="https://img.shields.io/badge/Arduino-00979D?style=for-the-badge&logo=arduino&logoColor=white"/>
+  <img src="https://img.shields.io/badge/EmguCV-512BD4?style=for-the-badge&logo=.net&logoColor=white"/>
+  <img src="https://img.shields.io/badge/Xcode-1575F9?style=for-the-badge&logo=xcode&logoColor=white"/>
+</p>
+
+---
+
+### 📊 GitHub Stats
+
+<div align="center">
+  <img src="https://github-readme-stats.vercel.app/api?username=hsilviu05&show_icons=true&theme=tokyonight" alt="GitHub Stats" width="48%"/>
+  <img src="https://github-readme-stats.vercel.app/api/top-langs/?username=hsilviu05&layout=compact&theme=radical" alt="Top Languages" width="48%"/>
+</div>
+
+---
+
+## 🧭 Badges
+
+![Status](https://img.shields.io/badge/Student-Year%202-blue?style=flat-square)
+![Focus](https://img.shields.io/badge/Focus-AI%2C%20Security%2C%20C%23-blueviolet?style=flat-square)
+![Learning](https://img.shields.io/badge/Learning-Swift%20%26%20Mobile%20Dev-orange?style=flat-square) 
